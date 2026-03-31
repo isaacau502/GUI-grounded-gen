@@ -1,17 +1,17 @@
 import sys
 import os
 import json
+import base64
 import argparse
 import time
 import traceback
 
-import torch
-from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
-from qwen_vl_utils import process_vision_info
+from dotenv import load_dotenv
+from openai import OpenAI
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "../../.env"))
 
 from designbench_utils import Framework, Mode, get_design_repair_prompt, extract_repair_content
-
-# --- Constants ---
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DATA_DIR = os.path.join(SCRIPT_DIR, "../../external/DesignBench/data/DesignRepair")
@@ -32,24 +32,10 @@ FORMAT_MAP = {
 }
 
 
-# --- Model ---
+def encode_image(image_path):
+    with open(image_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
 
-def load_model(model_id):
-    print(f"Loading model: {model_id}")
-    model = Qwen2VLForConditionalGeneration.from_pretrained(
-        model_id,
-        torch_dtype=torch.float16,
-        device_map="auto",
-    )
-    processor = AutoProcessor.from_pretrained(
-        model_id,
-        max_pixels=1024 * 28 * 28,
-    )
-    print("Model loaded.")
-    return model, processor
-
-
-# --- Data loading ---
 
 def load_sample(data_dir, framework, number):
     sample_dir = os.path.join(data_dir, framework.value, str(number))
@@ -67,77 +53,70 @@ def load_sample(data_dir, framework, number):
     return code, image_path
 
 
-# --- Prompt construction ---
-
-def build_messages(framework, code, image_path):
+def build_api_messages(framework, code, image_path):
     system_prompt, user_prompt = get_design_repair_prompt(
         output_framework=framework,
         mode=Mode.BOTH,
         code=code,
     )
 
+    image_b64 = encode_image(image_path)
+
     messages = [
-        {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": [
             {"type": "text", "text": user_prompt},
-            {"type": "image", "image": f"file://{os.path.abspath(image_path)}"},
+            {"type": "image_url", "image_url": {
+                "url": f"data:image/jpeg;base64,{image_b64}",
+                "detail": "high",
+            }},
         ]},
     ]
     return messages
 
 
-# --- Inference ---
+def run_api_inference(client, model_name, messages, max_tokens=8192):
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=messages,
+        max_tokens=max_tokens,
+        temperature=0,
+        seed=42,
+        stream=True,
+    )
 
-def run_single_inference(model, processor, messages, max_new_tokens=8192):
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    image_inputs, video_inputs = process_vision_info(messages)
-
-    inputs = processor(
-        text=[text],
-        images=image_inputs,
-        videos=video_inputs,
-        padding=True,
-        return_tensors="pt",
-    ).to(model.device)
-
-    with torch.no_grad():
-        output_ids = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            temperature=0.0,
-            do_sample=False,
-        )
-
-    generated_ids = output_ids[:, inputs.input_ids.shape[1]:]
-    response = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
-    return response.strip()
+    full_response = ""
+    for chunk in response:
+        if chunk.choices and hasattr(chunk.choices[0], "delta"):
+            delta = chunk.choices[0].delta
+            if hasattr(delta, "content") and delta.content:
+                full_response += delta.content
+    return full_response.strip()
 
 
-# --- Saving ---
-
-def get_model_name(model_id):
-    return model_id.split("/")[-1]
+def get_model_short_name(model_name):
+    return model_name.replace("/", "-")
 
 
-def get_save_dir(output_dir, framework, model_name):
+def get_save_dir(output_dir, framework, model_short):
     fw = framework.value
-    return os.path.join(output_dir, f"{fw}-{fw}", model_name)
+    return os.path.join(output_dir, f"{fw}-{fw}", model_short)
 
 
-def is_sample_done(output_dir, framework, number, model_name):
+def is_sample_done(output_dir, framework, number, model_short):
     fw = framework.value
-    save_dir = get_save_dir(output_dir, framework, model_name)
-    base_name = f"{fw}_{number}_{model_name}_{fw}_both"
+    save_dir = get_save_dir(output_dir, framework, model_short)
+    base_name = f"{fw}_{number}_{model_short}_{fw}_both"
     return os.path.exists(os.path.join(save_dir, f"{base_name}.json"))
 
 
-def parse_and_save(response, output_dir, framework, number, model_name):
+def parse_and_save(response, output_dir, framework, number, model_short):
     issues, reasoning, code = extract_repair_content(response, framework)
 
     fw = framework.value
-    save_dir = get_save_dir(output_dir, framework, model_name)
+    save_dir = get_save_dir(output_dir, framework, model_short)
     os.makedirs(save_dir, exist_ok=True)
-    base_name = f"{fw}_{number}_{model_name}_{fw}_both"
+    base_name = f"{fw}_{number}_{model_short}_{fw}_both"
 
     # Save JSON metadata
     if framework == Framework.ANGULAR and isinstance(code, tuple) and len(code) == 2:
@@ -165,7 +144,7 @@ def parse_and_save(response, output_dir, framework, number, model_name):
     # Save code files
     formats = FORMAT_MAP[framework]
     if framework == Framework.ANGULAR and isinstance(code, tuple) and len(code) == 2:
-        code_contents = [code[0], code[1]]  # ts, angular(html)
+        code_contents = [code[0], code[1]]
     elif isinstance(code, tuple):
         code_contents = list(code)
     elif isinstance(code, str):
@@ -178,27 +157,30 @@ def parse_and_save(response, output_dir, framework, number, model_name):
             f.write(content if content else "")
 
 
-# --- Main ---
-
 def main():
-    parser = argparse.ArgumentParser(description="Run Qwen2.5-VL-7B repair inference on DesignBench")
-    parser.add_argument("--data-dir", type=str, default=DEFAULT_DATA_DIR,
-                        help="Path to DesignRepair data directory")
-    parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR,
-                        help="Path to save results")
-    parser.add_argument("--model-id", type=str, default="Qwen/Qwen2.5-VL-7B-Instruct-AWQ",
-                        help="HuggingFace model ID")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Max samples to process (for testing)")
-    parser.add_argument("--frameworks", nargs="+", default=["vanilla", "react", "vue", "angular"],
-                        help="Frameworks to process")
-    parser.add_argument("--max-new-tokens", type=int, default=8192,
-                        help="Max tokens to generate per sample")
+    parser = argparse.ArgumentParser(description="Run Qwen VL repair inference on DesignBench via API")
+    parser.add_argument("--data-dir", type=str, default=DEFAULT_DATA_DIR)
+    parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--model", type=str, default="qwen2.5-vl-7b-instruct",
+                        help="Qwen model name")
+    parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--frameworks", nargs="+", default=["vanilla", "react", "vue", "angular"])
+    parser.add_argument("--max-tokens", type=int, default=8192)
     args = parser.parse_args()
+
+    api_key = os.environ.get("QWEN_API_KEY")
+    if not api_key:
+        print("Error: QWEN_API_KEY environment variable not set")
+        sys.exit(1)
+
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+    )
 
     data_dir = os.path.abspath(args.data_dir)
     output_dir = os.path.abspath(args.output_dir)
-    model_name = get_model_name(args.model_id)
+    model_short = get_model_short_name(args.model)
 
     # Build sample list
     samples = []
@@ -210,8 +192,7 @@ def main():
     if args.limit:
         samples = samples[:args.limit]
 
-    # Filter already completed
-    pending = [(fw, num) for fw, num in samples if not is_sample_done(output_dir, fw, num, model_name)]
+    pending = [(fw, num) for fw, num in samples if not is_sample_done(output_dir, fw, num, model_short)]
 
     print(f"Total: {len(samples)}, Done: {len(samples) - len(pending)}, Pending: {len(pending)}")
 
@@ -219,10 +200,6 @@ def main():
         print("All samples already completed.")
         return
 
-    # Load model
-    model, processor = load_model(args.model_id)
-
-    # Process samples
     success = 0
     failed = 0
 
@@ -232,9 +209,9 @@ def main():
 
         try:
             code, image_path = load_sample(data_dir, framework, number)
-            messages = build_messages(framework, code, image_path)
-            response = run_single_inference(model, processor, messages, max_new_tokens=args.max_new_tokens)
-            parse_and_save(response, output_dir, framework, number, model_name)
+            messages = build_api_messages(framework, code, image_path)
+            response = run_api_inference(client, args.model, messages, max_tokens=args.max_tokens)
+            parse_and_save(response, output_dir, framework, number, model_short)
 
             elapsed = time.time() - start
             print(f"OK ({elapsed:.1f}s)")

@@ -1,4 +1,2 @@
-transformers
-accelerate
-autoawq
-qwen-vl-utils
+openai
+python-dotenv
