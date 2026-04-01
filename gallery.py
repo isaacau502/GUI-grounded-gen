@@ -3,7 +3,6 @@
 
 import os
 import json
-import base64
 
 
 
@@ -22,6 +21,7 @@ OUTPUT = "/home/isaacau/gui-g-gen/gallery.html"
 def img_to_data_uri(path):
     if not os.path.exists(path):
         return None
+    import base64
     with open(path, "rb") as f:
         data = base64.b64encode(f.read()).decode()
     return f"data:image/png;base64,{data}"
