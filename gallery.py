@@ -62,22 +62,16 @@ def build_gallery():
                 m = metrics.get(sid, {})
                 compile_error = m.get("compile_error", "NULL")
                 csr_pass = compile_error == "NULL"
-                clip = m.get("clip_similarity", "—")
-                ssim = m.get("structure_similarity", "—")
-                cmls = m.get("ast_code_op_score", "—")
-                cmcs = m.get("ast_code_content_weighted_score", "—")
-                issue_acc = m.get("issue accuracy", "—")
-
-                if isinstance(clip, float):
-                    clip = f"{clip:.3f}"
-                if isinstance(ssim, float):
-                    ssim = f"{ssim:.3f}"
-                if isinstance(cmls, float):
-                    cmls = f"{cmls:.4f}"
-                if isinstance(cmcs, float):
-                    cmcs = f"{cmcs:.4f}"
-                if isinstance(issue_acc, float):
-                    issue_acc = f"{issue_acc:.2f}"
+                clip_raw = m.get("clip_similarity", 0)
+                ssim_raw = m.get("structure_similarity", 0)
+                cmls_raw = m.get("ast_code_op_score", 0)
+                cmcs_raw = m.get("ast_code_content_weighted_score", 0)
+                issacc_raw = m.get("issue accuracy", 0)
+                clip = f"{clip_raw:.3f}" if isinstance(clip_raw, float) else "—"
+                ssim = f"{ssim_raw:.3f}" if isinstance(ssim_raw, float) else "—"
+                cmls = f"{cmls_raw:.4f}" if isinstance(cmls_raw, float) else "—"
+                cmcs = f"{cmcs_raw:.4f}" if isinstance(cmcs_raw, float) else "—"
+                issue_acc = f"{issacc_raw:.2f}" if isinstance(issacc_raw, float) else "—"
 
                 # Read code snippet (first 50 lines)
                 code_preview = ""
@@ -100,11 +94,11 @@ def build_gallery():
                     "broken_uri": broken_uri,
                     "gt_uri": gt_uri,
                     "gen_uri": gen_uri,
-                    "clip": clip,
-                    "ssim": ssim,
-                    "cmls": cmls,
-                    "cmcs": cmcs,
-                    "issue_acc": issue_acc,
+                    "clip": clip, "clip_raw": float(clip_raw) if isinstance(clip_raw, (int, float)) else 0,
+                    "ssim": ssim, "ssim_raw": float(ssim_raw) if isinstance(ssim_raw, (int, float)) else 0,
+                    "cmls": cmls, "cmls_raw": float(cmls_raw) if isinstance(cmls_raw, (int, float)) else 0,
+                    "cmcs": cmcs, "cmcs_raw": float(cmcs_raw) if isinstance(cmcs_raw, (int, float)) else 0,
+                    "issue_acc": issue_acc, "issacc_raw": float(issacc_raw) if isinstance(issacc_raw, (int, float)) else 0,
                     "code": code_preview,
                 })
 
@@ -174,6 +168,21 @@ pre { background: #0d1117; padding: 10px; border-radius: 4px; font-size: 11px; o
         html += f'      <option value="{i}">{i}</option>\n'
     html += """    </select>
   </div>
+  <div>
+    <label>Sort:</label>
+    <select id="sort-metric">
+      <option value="none">Default</option>
+      <option value="clip">CLIP</option>
+      <option value="ssim">SSIM</option>
+      <option value="cmls">CMLS</option>
+      <option value="cmcs">CMCS</option>
+      <option value="issacc">IssAcc</option>
+    </select>
+    <select id="sort-dir">
+      <option value="desc">High → Low</option>
+      <option value="asc">Low → High</option>
+    </select>
+  </div>
   <span class="count" id="count"></span>
 </div>
 <div id="gallery">
@@ -189,7 +198,7 @@ pre { background: #0d1117; padding: 10px; border-radius: 4px; font-size: 11px; o
         csr_label = "CSR: PASS" if r["csr_pass"] else "CSR: FAIL"
 
         html += f"""
-<div class="card" data-fw="{r['fw']}" data-model="{r['model']}" data-sample="{r['sample']}" data-csr="{'pass' if r['csr_pass'] else 'fail'}">
+<div class="card" data-fw="{r['fw']}" data-model="{r['model']}" data-sample="{r['sample']}" data-csr="{'pass' if r['csr_pass'] else 'fail'}" data-clip="{r['clip_raw']}" data-ssim="{r['ssim_raw']}" data-cmls="{r['cmls_raw']}" data-cmcs="{r['cmcs_raw']}" data-issacc="{r['issacc_raw']}">
   <div class="card-header">
     <h3>{r['fw']} / sample {r['sample']}</h3>
     <div><span class="{csr_class}">{csr_label}</span> <span class="badge">{r['model'].split('-instruct')[0]}</span></div>
@@ -213,13 +222,29 @@ pre { background: #0d1117; padding: 10px; border-radius: 4px; font-size: 11px; o
     html += """
 </div>
 <script>
-const cards = document.querySelectorAll('.card');
+const gallery = document.getElementById('gallery');
+const cards = Array.from(document.querySelectorAll('.card'));
 const fwF = document.getElementById('fw-filter');
 const mF = document.getElementById('model-filter');
 const sF = document.getElementById('sample-filter');
+const sortM = document.getElementById('sort-metric');
+const sortD = document.getElementById('sort-dir');
 const countEl = document.getElementById('count');
 
-function filter() {
+function update() {
+  // Sort
+  const metric = sortM.value;
+  const asc = sortD.value === 'asc';
+  if (metric !== 'none') {
+    cards.sort((a, b) => {
+      const av = parseFloat(a.dataset[metric]) || 0;
+      const bv = parseFloat(b.dataset[metric]) || 0;
+      return asc ? av - bv : bv - av;
+    });
+    cards.forEach(c => gallery.appendChild(c));
+  }
+
+  // Filter
   let shown = 0;
   cards.forEach(c => {
     const fwOk = fwF.value === 'all' || c.dataset.fw === fwF.value;
@@ -232,10 +257,8 @@ function filter() {
   countEl.textContent = shown + ' / ' + cards.length;
 }
 
-fwF.addEventListener('change', filter);
-mF.addEventListener('change', filter);
-sF.addEventListener('change', filter);
-filter();
+[fwF, mF, sF, sortM, sortD].forEach(el => el.addEventListener('change', update));
+update();
 </script>
 </body>
 </html>
