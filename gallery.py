@@ -3,10 +3,11 @@
 
 import os
 import json
+import shutil
 
 
 
-DESIGNBENCH_ROOT = "/home/isaacau/gui-g-gen/external/DesignBench"
+DESIGNBENCH_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "external", "DesignBench")
 MODELS = ["qwen2.5-vl-72b-instruct", "qwen2.5-vl-7b-instruct"]
 FRAMEWORKS = {
     "react": {"ext": "jsx", "count": 28},
@@ -15,16 +16,18 @@ FRAMEWORKS = {
     "vanilla": {"ext": "html", "count": 28},
 }
 MODE = "both"
-OUTPUT = "/home/isaacau/gui-g-gen/gallery.html"
+SITE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_gallery_site")
+OUTPUT = os.path.join(SITE_DIR, "index.html")
+IMG_DIR = os.path.join(SITE_DIR, "images")
 
 
-def img_to_data_uri(path):
-    if not os.path.exists(path):
+def copy_img(src_path, dest_name):
+    """Copy image to IMG_DIR and return relative path, or None if missing."""
+    if not os.path.exists(src_path):
         return None
-    import base64
-    with open(path, "rb") as f:
-        data = base64.b64encode(f.read()).decode()
-    return f"data:image/png;base64,{data}"
+    dest = os.path.join(IMG_DIR, dest_name)
+    shutil.copy2(src_path, dest)
+    return f"images/{dest_name}"
 
 
 def load_metrics(fw, mode, model):
@@ -37,6 +40,7 @@ def load_metrics(fw, mode, model):
 
 
 def build_gallery():
+    os.makedirs(IMG_DIR, exist_ok=True)
     rows = []
 
     for fw, info in FRAMEWORKS.items():
@@ -82,9 +86,9 @@ def build_gallery():
                         if len(lines) == 50:
                             code_preview += "\n... (truncated)"
 
-                broken_uri = img_to_data_uri(broken_img)
-                gt_uri = img_to_data_uri(gt_img)
-                gen_uri = img_to_data_uri(gen_img)
+                broken_uri = copy_img(broken_img, f"{fw}_{sid}_broken.png")
+                gt_uri = copy_img(gt_img, f"{fw}_{sid}_gt.png")
+                gen_uri = copy_img(gen_img, f"{fw}_{i}_{model}_gen.png")
 
                 rows.append({
                     "fw": fw,

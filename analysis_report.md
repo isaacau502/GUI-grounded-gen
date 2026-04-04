@@ -169,13 +169,31 @@ Overflow issues have the highest 7B compile failure rate (38.9%) and are among t
 
 4. **Benchmark reproducibility is fragile.** Model versioning (silent updates), toolchain versions, and CSR detection patterns all affect results. Exact reproduction requires pinning every dependency, which DesignBench does not do.
 
+### The Missing Link: Visual-to-Code Grounding
+
+The error analysis reveals a fundamental gap in the baseline approach: **the model receives a screenshot and code side-by-side but has no explicit mapping between visual regions and code elements.** This leads to two compounding failures:
+
+1. **Defect identification is weak.** The 72B model achieves only 34% Issue Accuracy (mean), with 22% of samples scoring 0.0 (completely wrong). The model struggles to determine *what* is visually wrong from the screenshot alone.
+
+2. **Defect localization is weak even when identification succeeds.** When the model correctly identifies issue types (IssAcc >= 0.5), CMCS only improves from 0.354 to 0.374 — a negligible 6% gain. The model knows "there's an alignment issue" but cannot reliably map that to the specific DOM element and CSS property causing it.
+
+These are not independent problems. The correlation between Issue Accuracy and CMCS is only 0.117 (72B), meaning correct defect *categorization* barely predicts correct *code fixes*. The bottleneck is the bridge between visual perception and code localization.
+
+This is precisely the gap that **GUI grounding methods from browsing agents** address. Models like SeeClick, CogAgent, and OmniParser are trained to map visual regions to UI elements — predicting bounding boxes, identifying clickable elements, and grounding natural language instructions to specific screen coordinates. Applied to the repair task, GUI grounding could:
+
+- **Map visual defects to DOM elements**: Given "this text overlaps that button" (with coordinates), ground it to the specific `<p>` and `<button>` elements in the code
+- **Improve spatial reasoning**: Overflow and occlusion (the hardest issue types, with 38.9% and 37.9% compile fail rates for 7B) are inherently spatial problems that require understanding which elements occupy which screen regions
+- **Enable precise, minimal edits**: With a grounded mapping from "visual defect at region X" → "code element Y", the model can make targeted fixes rather than rewriting large code sections (which causes low CMLS)
+
+The strongest evidence for this direction: **vanilla HTML has the highest over-modification rate** (32% Wrong Location for 7B) because without framework structure, the model has no constraints on *where* to edit. GUI grounding provides those constraints from the visual side.
+
 ### Capabilities Needed for Better Performance
 
 A hypothetical improved model would need:
+- **Visual-to-code grounding**: The ability to map specific visual regions in a screenshot to corresponding elements in the source code. This is the core capability gap identified above.
 - **Syntax awareness**: Ability to maintain valid syntax throughout long code edits, especially for JSX/TSX. This could come from structured generation (grammar-constrained decoding) or a syntax validation feedback loop.
 - **Minimal edit bias**: Training signal that rewards minimal, targeted fixes over rewrites. Current models tend to over-modify.
 - **Spatial reasoning over CSS**: Better understanding of the CSS box model, layout algorithms, and how property changes affect element positioning.
-- **Multi-issue decomposition**: Ability to identify and fix multiple co-occurring issues (alignment + overflow + occlusion) independently rather than attempting a single large edit.
 
 ### Strengths of the Baseline
 
@@ -183,17 +201,25 @@ A hypothetical improved model would need:
 - It handles multi-issue samples reasonably well
 - It generalizes across four different frontend frameworks with no framework-specific tuning
 - The prompt template (from DesignBench) effectively communicates the task
+- The model can reason about visual defects at a high level (it produces plausible [REASONING] outputs even when the fix is wrong)
 
-### Refining the Approach
+### Proposed Approach: GUI Grounding for Design Repair
 
-*To be investigated.* Potential directions informed by error analysis:
-- A compile-then-retry loop where failed compilations are fed back to the model with the error message
-- Constraining the model to output only the diff (changed lines) rather than the full file, to reduce over-modification
-- Framework-specific prompting that accounts for syntax sensitivity (e.g., React JSX requires extra care vs vanilla HTML)
+Integrate GUI grounding methods from browsing agents into the repair pipeline:
+
+1. **Defect grounding stage**: Use a GUI grounding model (e.g., OmniParser, SeeClick) to annotate the broken screenshot with bounding boxes around defective regions and map them to DOM elements
+2. **Augmented prompt**: Feed the LLM the original screenshot + code + grounded annotations ("element `.card-header` at [120, 45, 380, 90] overlaps `.nav-bar` at [0, 0, 400, 60]")
+3. **Targeted repair**: With precise localization, the model can generate minimal, targeted fixes rather than broad rewrites
+
+This approach addresses all three failure modes:
+- **Compile failures**: Smaller edit scope = less chance of introducing syntax errors
+- **Wrong location**: Grounding tells the model *exactly* which element to edit
+- **Over-modification**: Spatial annotations constrain the repair to defective regions only
 
 ### Fallback Ideas
 
-*To be investigated.* If the initial approach fails entirely:
-- Use a two-stage pipeline: first identify the defect location (classification), then generate the fix (constrained generation)
-- Leverage the 72B model as a teacher to generate training data for a smaller, specialized repair model
-- Explore code-specific models (e.g., DeepSeek-Coder) that may have stronger syntax guarantees, even if weaker at visual understanding
+If the GUI grounding approach does not improve results:
+- **Set-of-marks prompting**: A lighter alternative — overlay numbered markers on the screenshot to give the model spatial anchors without a full grounding model
+- **Compile-then-retry loop**: Feed compilation errors back to the model for iterative refinement (addresses the 7B compile failure bottleneck directly)
+- **Two-stage pipeline**: Separate defect classification from code generation — use a vision model for detection and a code model for repair
+- **Diff-only output**: Constrain the model to output only changed lines rather than the full file, reducing over-modification
