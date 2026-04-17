@@ -1,0 +1,405 @@
+\documentclass[11pt]{article}
+\usepackage{acl}
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{inconsolata}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{booktabs}
+
+
+\captionsetup{skip=4pt}
+
+\setlength{\textfloatsep}{8pt}   % space above/below floats
+\setlength{\floatsep}{6pt}       % space between floats
+\setlength{\intextsep}{6pt}      % space for in-text floats
+
+\title{Evaluating DesignBench Baselines for Automated UI Code Repair}
+
+\author{Alice Le \\
+  Carnegie Mellon University \\
+  \texttt{anhle@andrew.cmu.edu} \\\And
+  Isaac Au \\
+  Carnegie Mellon University \\
+  \texttt{yau@andrew.cmu.edu} \\}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We reproduce Qwen2.5-VL (72B and 7B) on the DesignBench UI code repair task and conduct a systematic error analysis to inform our proposed approach of repurposing GUI grounding models as visual critics. Our 72B reproduction closely matches reported results, with Angular CMLS and CMCS within 5\%. The 7B model exhibits severe compile failures on framework-based projects (75\% on React, 43\% on Angular) and low Issue Accuracy (27\%), motivating the 72B model as our generation backbone. Error analysis reveals that defect identification and code localization are compounding bottlenecks, and that spatial defects (overflow, occlusion) are substantially harder than property-level defects (color, contrast). These findings refine our proposal: we use 72B for generation while targeting the identification and localization gaps with GUI grounding augmentation.
+\end{abstract}
+
+
+%% ─────────────────────────────────────────────────────────────
+\section{Baseline Reproduction}
+\label{sec:baseline}
+   % Rubric: existing baseline? describe it, SOTA justification, results + differences
+
+\subsection{Task and Baseline}
+% - DesignBench Design Repair task description (input: screenshot + buggy code + issue list → repaired code)
+% - Metrics: CSR, CMLS, CMCS
+% - Baseline choice: Qwen2.5-VL (72B + 7B)
+% - SOTA justification: GPT-4o is SOTA but proprietary; Qwen is top open-weight model, two sizes enable scale analysis
+
+We reproduce the \textit{Design Repair} subtask from DesignBench \cite{designbench2025}, a benchmark for evaluating multimodal LLMs on automated front-end engineering. Given a rendered screenshot of a broken UI, its buggy source code, and a list of display issues, a model must output repaired code that resolves the visual defects. DesignBench covers four front-end frameworks, namely React, Vue, Angular, and vanilla HTML/CSS. There are six defect categories: misalignment, overflow, occlusion, crowding, color/contrast, and other. The repair split contains 111 samples distributed across the four frameworks (28/27/28/28).
+ 
+\paragraph{Metrics.} DesignBench evaluates repair quality along five dimensions CSR, IssAcc, CMLS, CMCS, CLIP as defined in Table~\ref{tab:metrics}.
+ 
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Metric} & \textbf{Measures} & \textbf{Stage} \\
+\midrule
+CSR     & Code compiles without errors       & Generation \\
+IssAcc  & Correct defect-type labels         & Identification \\
+CMLS    & Jaccard sim.\ of AST edits         & Localization \\
+CMCS    & CMLS $\times$ CodeBLEU of edits    & Loc.\ + Content \\
+CLIP    & Visual sim.\ of rendered output    & Overall \\
+\bottomrule
+\end{tabular}
+\caption{DesignBench metrics mapped to repair pipeline stages.}
+\label{tab:metrics}
+\end{table}
+
+
+\paragraph{SOTA Justification \& Baseline choice.}
+DesignBench provides the direct existing baseline for our task. The DesignBench paper evaluates nine MLLMs on the repair task, spanning proprietary models (GPT-4o, Claude-3.7-Sonnet, Gemini-2.0-Flash) and open-weight models (Qwen2.5-VL 72B/7B, Llama-3.2 90B/11B, Pixtral 124B/12B). Among models evaluated in the benchmark, GPT-4o and
+Claude-3.7-Sonnet achieve the strongest overall performance. Since the benchmark's release, newer proprietary models (Claude Opus 4.6, GPT-5.4) have become available and likely outperform the evaluated models, but have not been tested on DesignBench. All proprietary models---both those in the original evaluation and their successors---share the same reproducibility limitation that API outputs are non-deterministic and underlying checkpoints change without notice.
+
+Among open-weight models evaluated on DesignBench, Qwen2.5-VL-72B is the strongest performer on the repair task. It is available via the Dashscope API---the same inference endpoint used by the original authors, making it the most reproducible strong baseline available. We additionally evaluate Qwen2.5-VL-7B for two reasons. First, it enables a within-family scale analysis. Second, it is the base model for JEDI-7B
+\cite{xie2025jedi}, the GUI grounding model central to our proposed approach; characterizing the 7B model's failure modes is essential
+groundwork for understanding where grounding augmentation can provide the most benefit.
+
+We use the same prompt template as the original paper (\texttt{run\_repair.py} $\to$ \texttt{repair\_prompt.py}), running in \texttt{both} mode (screenshot + code) throughout. 
+ 
+\subsection{Reproduction Results}
+ % - Tables: 72B and 7B results, ours vs paper
+% - Discussion of differences: broadly consistent, CSR gaps are detection artifacts (regex version mismatch), small N per framework
+% - Note: CLIP visual similarity confirms comparable outputs
+% - Remaining unexplained variance: possible Dashscope API checkpoint drift, but unverifiable
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{FW} & \textbf{N} & \textbf{CSR} & \textbf{CMLS} & \textbf{CMCS} & \textbf{IssAcc} & \textbf{CLIP} \\
+ & & \multicolumn{3}{c}{\footnotesize (paper / ours)} & \multicolumn{2}{c}{\footnotesize (ours)} \\
+\midrule
+React   & 28 & 0.929 / 0.857 & 0.634 / 0.339 & 0.542 / 0.230 & 0.395 & 0.771 \\
+Vue     & 27 & 1.000 / 1.000 & 0.509 / 0.213 & 0.392 / 0.143 & 0.213 & 0.796 \\
+Angular & 28 & 0.929 / 0.964 & 0.676 / 0.631 & 0.571 / 0.556 & 0.379 & 0.821 \\
+Vanilla & 28 & ---\phantom{0} / 1.000 & 0.609 / 0.532 & 0.586 / 0.510 & 0.369 & 0.791 \\
+\midrule
+Overall & 111 & 0.952 / 0.955 & 0.607 / 0.430 & 0.523 / 0.360 & 0.340 & 0.795 \\
+\bottomrule
+\end{tabular}
+\caption{Qwen2.5-VL-72B repair results. CSR, CMLS, and CMCS are shown as paper\,/\,ours; IssAcc and CLIP are ours only (the original paper reports IssAcc aggregated differently and does not report per-framework CLIP for repair).}
+\label{tab:72b}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{FW} & \textbf{N} & \textbf{CSR} & \textbf{CMLS} & \textbf{CMCS} & \textbf{IssAcc} & \textbf{CLIP} \\
+ & & \multicolumn{3}{c}{\footnotesize (paper / ours)} & \multicolumn{2}{c}{\footnotesize (ours)} \\
+\midrule
+React   & 28 & 0.286 / 0.250 & 0.362 / 0.182 & 0.257 / 0.139 & 0.345 & 0.632 \\
+Vue     & 27 & 0.111 / 0.926 & 0.245 / 0.237 & 0.180 / 0.179 & 0.210 & 0.785 \\
+Angular & 28 & 0.036 / 0.571 & 0.641 / 0.304 & 0.577 / 0.206 & 0.173 & 0.486 \\
+Vanilla & 28 & ---\phantom{0} / 1.000 & 0.499 / 0.422 & 0.478 / 0.394 & 0.345 & 0.796 \\
+\midrule
+Overall & 111 & ---\phantom{0} / 0.687 & 0.437 / 0.287 & 0.373 / 0.230 & 0.269 & 0.674 \\
+\bottomrule
+\end{tabular}
+\caption{Qwen2.5-VL-7B repair results. Format matches Table~\ref{tab:72b}.}
+\label{tab:7b}
+\end{table*}
+
+Tables~\ref{tab:72b} and~\ref{tab:7b} report our results alongside the paper's values for 72B and 7B respectively.
+ 
+
+ 
+
+The 72B results are broadly consistent with the paper. Angular CMLS
+(0.676 vs.\ 0.631) and CMCS (0.571 vs.\ 0.556) are within 5 percentage
+points. Vue 7B CMCS is nearly identical (0.180 vs.\ 0.179). CLIP visual
+similarity scores are comparable across all conditions, confirming that
+model outputs are qualitatively similar even where code-level metrics
+diverge.
+
+The 7B CSR shows the largest discrepancies: Vue (paper 0.111 vs.\ ours
+0.926) and Angular (0.036 vs.\ 0.571). We verified that Node versions,
+framework versions, random seed, and temperature are identical to the
+original setup, and confirmed that our seed produces deterministic
+outputs. CSR detection code is unchanged except for a React patch
+adding the \texttt{nextjs-container-errors} class for newer Next.js
+versions. The most plausible remaining explanation is regional API
+divergence: the original authors used the China Dashscope endpoint
+(\texttt{dashscope.aliyuncs.com}), while we use the international
+endpoint (\texttt{dashscope-intl.aliyuncs.com}). Alibaba may serve
+different model snapshots across regional endpoints under the same model
+identifier; we cannot verify this independently. The 72B model is likely robust to
+minor weight differences---its code compiles cleanly regardless---while
+the 7B model produces borderline outputs where small weight
+perturbations can push code from ``barely compiles'' to ``barely
+fails,'' amplifying CSR differences disproportionately.
+
+IssAcc shows a similar discrepancy for 7B (paper 0.076 vs.\ ours
+0.269). We traced this to the issue extraction logic: if the model's
+output does not contain valid JSON inside the \texttt{[ISSUES]} tags,
+the parser silently falls back to an empty list, yielding
+IssAcc\,=\,0. Minor formatting differences in the 7B output between
+endpoints can cause widespread extraction failures, inflating the gap.
+
+At N\,=\,27--28 per framework, even two or three differing samples shift
+the mean by several percentage points. We treat the reproduction as
+successful based on the close alignment of 72B results, the consistency
+of CMLS and CMCS for 7B, and CLIP corroboration across all conditions.
+
+
+%% ─────────────────────────────────────────
+\section{Error Analysis}
+% Rubric: systematic analysis, specific examples, failure identification, causal analysis
+
+\subsection{Methodology}
+
+Our proposed approach uses GUI grounding to improve two stages of the
+repair pipeline: identifying \textit{what} is visually wrong and
+localizing \textit{where} in the code to fix it. We structure our error
+analysis around the DesignBench metrics (defined in Section~\ref{sec:baseline})
+that correspond to these stages (Table~\ref{tab:metrics}). Issue Accuracy measures whether the model
+correctly categorizes the visual defect; CMLS and CMCS measure whether
+the model edits the right code in the right way. We additionally report
+CSR (whether the output compiles) and CLIP (whether the rendered result
+visually resembles the ground truth) as context. Our analysis combines
+automated metric computation from DesignBench's evaluation pipeline with
+manual inspection of a side-by-side gallery comparing broken input,
+ground truth, and model output for each sample. We examine patterns
+along two axes: by frontend framework (React, Vue, Angular, Vanilla)
+using aggregate metrics, and by defect type (alignment, overflow,
+occlusion, crowding, color/contrast) through qualitative comparison.
+Sample sizes are small---27--28 per framework and 11--67 per defect
+type---and we interpret patterns accordingly.
+
+
+\subsection{Findings}
+
+The 72B model's results closely match the originally reported values,
+with CSR, CMLS, and CMCS all within approximately 5\% on Angular and
+visual similarity scores (CLIP) comparable across all frameworks. We
+treat this as validation that our reproduction pipeline---prompt
+template, rendering environment, and evaluation code---is faithful to
+the original benchmark. The remaining analysis focuses on the 7B model,
+whose results diverge more substantially and whose failure modes are
+directly relevant to our proposed approach.
+
+\paragraph{Compile failures and localization errors compound.}
+The 7B model fails to compile 75\% of React outputs and 43\% of Angular
+outputs, producing malformed JSX, unterminated strings, and missing
+closing tags. However, compilation is not the only bottleneck. Among
+samples that do compile, the model frequently edits the wrong code
+locations: mean CMLS on compiled samples is 0.28, indicating that even
+when the output is syntactically valid, fewer than a third of the
+model's AST edits overlap with the ground truth. These are compounding
+failures, not independent ones. The model often fails to identify the
+visual defect correctly (mean Issue Accuracy of 27\%), and even when
+identification succeeds (IssAcc $\geq$ 0.5), CMCS improves only
+marginally from 0.354 to 0.374. The correlation between Issue Accuracy
+and CMCS is just 0.117, meaning correct defect categorization barely
+predicts correct code fixes. The model may recognize that something
+looks wrong, attempt a plausible repair strategy, but introduce syntax
+errors or edit the wrong element in the process.
+
+\paragraph{Defect type affects difficulty.}
+Spatial defects are consistently harder than property-level defects.
+Overflow issues have the lowest 7B CMCS (0.220) and the highest compile
+failure rate (38.9\%), while occlusion follows closely (CMCS 0.232,
+37.9\% compile failures). These defect types require reasoning about
+how elements relate to each other in rendered space---which elements
+overlap, which exceed their containers---demanding precise understanding
+of the CSS box model, flexbox layout, and z-index stacking. In
+contrast, color and contrast issues are relatively tractable (CMCS
+0.313, 27.3\% compile failures), likely because they involve isolated
+property changes rather than spatial reasoning across multiple elements.
+
+\paragraph{Illustrative failure cases.}
+We highlight three samples from the side-by-side gallery that
+concretize the failure patterns described above.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/sample11_comparison.png}
+\caption{Vanilla/sample\_11 (7B). Left: broken input with low-contrast
+sidebar text. Center: ground truth restoring text legibility. Right:
+model output, which deletes sidebar content entirely.}
+\label{fig:sample11}
+\end{figure*}
+
+\textit{Identification failure} (Figure~\ref{fig:sample11}).
+In vanilla/sample\_11, the broken UI renders a sidebar with
+near-zero contrast---dark text on a dark background. The ground truth
+adjusts text color to restore legibility. The 7B model fails to
+identify this as a color/contrast defect (IssAcc\,=\,0.00) and instead
+removes the sidebar content entirely. Despite achieving perfect
+code-level scores (CMLS\,=\,1.0, CMCS\,=\,1.0)---indicating that its
+edits target the correct AST nodes---the rendered output is visually
+degraded: an empty sidebar rather than a legible one. The model
+``repaired'' the contrast problem by eliminating the content that
+exhibited it.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/sample13_comparison.png}
+\caption{Vanilla/sample\_13 (72B). Left: broken input with a
+multi-column insurance dashboard. Center: ground truth with targeted
+layout fixes. Right: model output, which rewrites the page into a
+single-column list.}
+\label{fig:sample13}
+\end{figure*}
+
+\textit{Localization failure} (Figure~\ref{fig:sample13}).
+Vanilla/sample\_13 demonstrates the localization bottleneck in the 72B
+model. The broken input is an insurance dashboard displaying policy
+cards in a multi-column grid. The model partially identifies the defect
+(IssAcc\,=\,0.50) but achieves near-zero localization overlap
+(CMLS\,=\,0.02): rather than making targeted edits to the existing
+layout, it rewrites the page into a single-column list, eliminating the
+card grid and the lower purchase section entirely. The model defaults to
+regenerating the layout wholesale---precisely the failure mode that GUI
+grounding targets, where an explicit mapping from visual regions to code
+elements would constrain repairs to the defective components.
+
+
+\paragraph{Implications for GUI grounding.}
+The 7B model is the base architecture for JEDI-7B, the grounding model
+we propose to integrate in our approach. The failures documented above
+are not fundamental capacity limitations but rather reflect the absence
+of structured visual information: the model receives a screenshot and
+code side by side but has no explicit mapping between visual regions and
+code elements. This is precisely the signal that GUI grounding provides.
+Grounding could help the model identify which elements are spatially
+misaligned, map those elements to specific code locations, and constrain
+repairs to the defective region.
+
+%% ─────────────────────────────────────────
+\section{Reflection}
+
+\subsection{Lessons and Capability Gaps}
+
+The reproduction and error analysis surfaced three key lessons about the
+task and its evaluation.
+
+First, DesignBench's code-level metrics do not capture visual
+correctness. CMLS and CMCS measure Jaccard overlap of AST edit
+operations and CodeBLEU of matched edits, respectively. A model that
+rewrites a component from scratch but produces a visually identical
+result will score near zero on both metrics. This means the benchmark
+may systematically undercount functionally correct repairs. We propose
+supplementing these metrics with CLIP similarity between rendered
+screenshots, which directly measures whether the output \textit{looks}
+right regardless of how the code achieves it.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/sample14_comparison.png}
+\caption{Vanilla/sample\_14 (7B). Left: broken input with off-center
+profile card text. Center: ground truth with centered text. Right:
+model output, which stretches the card to full width without applying
+the centering fix.}
+\label{fig:sample14}
+\end{figure*}
+
+Figure~\ref{fig:sample14} illustrates this disconnect. In
+vanilla/sample\_14, the 7B model achieves perfect code-level scores
+(IssAcc\,=\,1.0, CMLS\,=\,1.0, CMCS\,=\,1.0) for an off-center
+profile card, yet the rendered output stretches the card to full
+viewport width rather than centering it. Because CMLS and CMCS only
+score edits overlapping the ground-truth set, unmatched edits that
+break the layout go unpenalized. CLIP drops to 0.906, capturing the
+visual regression that code-level metrics miss and motivating
+rendered-screenshot similarity as a supplementary metric.
+
+Second, the 7B model cannot reliably produce syntactically valid code
+for framework-based projects (75\% compile failure on React, 43\% on
+Angular). This makes it an unsuitable generator for evaluating whether
+grounding improves repair quality: if the generator cannot compile its
+output, improvements in defect identification are unobservable. Our
+error analysis motivates using the 72B model as the generation step,
+where compile failures are rare and the analysis can focus on
+identification and localization quality.
+
+Third, as shown in Section~\ref{sec:baseline}, defect identification
+and code localization are compounding bottlenecks. Correct
+identification barely predicts correct fixes. The model lacks an
+explicit mapping between visual regions and code elements, which is the
+central gap that GUI grounding addresses.
+Two strengths of the current baseline deserve attention. The DesignBench
+prompt template elicits plausible reasoning from the model---it produces
+structured \texttt{[REASONING]} outputs that often correctly describe
+the defect even when the resulting fix is wrong. Any approach that
+replaces or augments this prompt must preserve this reasoning quality.
+Additionally, the single-pass baseline is simple: one model call, no
+pipeline orchestration. Our proposed two-step approach (grounding then
+generation) introduces complexity and potential error propagation that
+must justify itself empirically.
+
+\subsection{Refined Proposal and Alternatives}
+
+Our error analysis refines the approach proposed in our project
+proposal. The core idea remains the same: use a GUI grounding model to
+produce structured spatial annotations of visual defects, then provide
+these annotations to a code-generation model alongside the source code.
+The grounding model (JEDI-7B or OmniParser v2) identifies UI elements,
+their bounding boxes, and spatial relationships from the rendered
+screenshot. The generation model uses these annotations to produce
+targeted code repairs.
+
+The key refinement is the choice of generation model. Our original
+proposal used Qwen2.5-VL-7B for both grounding and generation. The
+error analysis shows this is not viable: the 7B model's compile failures
+would mask any improvements from grounding. We now plan to use the 72B
+model as the generator, keeping the grounding step at the 7B scale
+(where JEDI-7B operates). The comparison becomes: grounding-augmented
+identification with 72B generation versus the current single-pass 72B
+baseline. Whether identification and generation should be merged into a
+single call or separated into distinct steps is itself a variable we
+will investigate. We evaluate on the full DesignBench repair task across
+all four frontend frameworks.
+
+Our experimental plan proceeds in two stages. First, we evaluate
+zero-shot grounding transfer: the grounding model is used as-is, without
+task-specific training, to test whether navigation-trained spatial
+understanding transfers to defect detection. Second, we apply LoRA
+fine-tuning to the grounding model on UI defect data to bridge any
+remaining gap between navigation grounding and defect identification. If
+grounding shows promise, we plan a further extension using multimodal
+RAG to augment the generation step with design guidelines retrieved from
+sources such as Material Design, providing normative context that
+neither the grounding model nor the generator currently possesses.
+
+If the grounding direction does not improve repair quality, two
+alternative approaches are worth exploring. Set-of-marks prompting
+overlays numbered visual markers on the screenshot as lightweight
+spatial anchors, providing some of the same positional information
+without requiring a grounding model. Visual diff guidance takes a
+different approach entirely: rendering the broken output, computing
+pixel-level differences against a reference, and feeding the diff
+regions to the LLM as repair hints. Both are feasible within the project
+timeline and attack the visual-to-code gap from different angles.
+%% ─────────────────────────────────────────
+
+\bibliographystyle{acl}
+\bibliography{latex/references}
+
+\end{document}

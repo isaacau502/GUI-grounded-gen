@@ -7,7 +7,9 @@ import shutil
 
 
 
-DESIGNBENCH_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "external", "DesignBench")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+DESIGNBENCH_ROOT = os.environ.get("DESIGNBENCH_ROOT") or os.path.join(REPO_ROOT, "external", "DesignBench")
 MODELS = ["qwen2.5-vl-72b-instruct", "qwen2.5-vl-7b-instruct"]
 FRAMEWORKS = {
     "react": {"ext": "jsx", "count": 28},
@@ -16,7 +18,7 @@ FRAMEWORKS = {
     "vanilla": {"ext": "html", "count": 28},
 }
 MODE = "both"
-SITE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_gallery_site")
+SITE_DIR = os.path.join(SCRIPT_DIR, "_gallery_site")
 OUTPUT = os.path.join(SITE_DIR, "index.html")
 IMG_DIR = os.path.join(SITE_DIR, "images")
 

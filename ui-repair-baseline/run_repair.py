@@ -8,8 +8,8 @@ Usage:
         scikit-image pillow numpy scipy openai-clip ftfy tqdm requests retry \
         imageio pydantic httpx python-dotenv torch torchvision
 
-    # Install npm AST parsers (one-time):
-    npm install @babel/parser @vue/compiler-dom parse5 --prefix /home/isaacau/gui-g-gen/external/DesignBench
+    # Install npm AST parsers (one-time), run from repo root:
+    npm install @babel/parser @vue/compiler-dom parse5 --prefix external/DesignBench
 
     # Run:
     python run_repair.py                    # 2 samples per framework (quick test)
@@ -28,7 +28,9 @@ import signal
 print("[boot] Stdlib imports done.", flush=True)
 
 # ── Paths ─────────────────────────────────────────────────────────
-DESIGNBENCH_ROOT = "/home/isaacau/gui-g-gen/external/DesignBench"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+DESIGNBENCH_ROOT = os.environ.get("DESIGNBENCH_ROOT") or os.path.join(REPO_ROOT, "external", "DesignBench")
 CODE_DIR = os.path.join(DESIGNBENCH_ROOT, "code")
 EVALUATOR_DIR = os.path.join(CODE_DIR, "evaluator")
 
@@ -57,7 +59,7 @@ print("[boot] Symlinks done. Loading env...", flush=True)
 from dotenv import load_dotenv
 load_dotenv(os.path.join(DESIGNBENCH_ROOT, ".env"))
 # Also load from repo root
-load_dotenv("/home/isaacau/gui-g-gen/.env")
+load_dotenv(os.path.join(REPO_ROOT, ".env"))
 print("[boot] Env loaded. Ready.", flush=True)
 
 

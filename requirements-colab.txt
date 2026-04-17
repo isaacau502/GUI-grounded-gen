@@ -1,0 +1,19 @@
+# Colab compute deps — grounding model inference + fine-tuning.
+# Install after requirements.txt: pip install -r requirements-colab.txt
+
+# Grounding models
+transformers>=4.45.0
+accelerate
+einops
+timm
+huggingface_hub
+qwen-vl-utils    # JEDI is Qwen2.5-VL based
+
+# Fine-tuning (Approach 2)
+peft
+bitsandbytes
+datasets
+
+# RAG (Approach 3)
+faiss-cpu
+sentence-transformers

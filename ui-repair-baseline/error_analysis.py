@@ -19,7 +19,8 @@ from collections import defaultdict
 import numpy as np
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DESIGNBENCH_ROOT = os.path.join(SCRIPT_DIR, "external", "DesignBench")
+REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+DESIGNBENCH_ROOT = os.environ.get("DESIGNBENCH_ROOT") or os.path.join(REPO_ROOT, "external", "DesignBench")
 EVAL_DIR = os.path.join(DESIGNBENCH_ROOT, "code", "evaluator", "res", "DesignRepair")
 DATA_DIR = os.path.join(DESIGNBENCH_ROOT, "data", "DesignRepair")
 RESULTS_DIR = os.path.join(DESIGNBENCH_ROOT, "results", "repair")

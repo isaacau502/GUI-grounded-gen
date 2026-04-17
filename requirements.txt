@@ -1,0 +1,27 @@
+# Shared Python deps (inference + evaluation, no training).
+# For Colab-specific compute deps, see requirements-colab.txt.
+
+# LLM API clients
+openai>=1.50,<2
+anthropic
+
+# DesignBench baseline evaluation
+selenium
+opencv-python
+scikit-image
+pillow
+numpy
+scipy
+openai-clip
+ftfy
+retry
+imageio
+tqdm
+requests
+python-dotenv
+httpx
+pydantic
+
+# Torch (pinned to CPU by default; Colab overrides in requirements-colab.txt)
+torch
+torchvision

@@ -1,176 +1,65 @@
-# DesignBench Repair Task — Reproduction
+# GUI-grounded-gen
 
-Reproduction of the **Design Repair** task from [DesignBench](https://github.com/WebPAI/DesignBench), a benchmark evaluating how well multimodal LLMs can fix broken front-end code from design screenshots.
+**Repurposing GUI grounding models as visual critics for automated UI code repair.**
 
-## Results
+CMU 11-711 project — Alice Le, Isaac Au.
 
-### Qwen2.5-VL-72B-Instruct
+## The idea
 
-| Framework | N | CSR | CMLS | CMCS |
-|-----------|---|-----|------|------|
-| React | 28 | 0.857 | 0.339 | 0.230 |
-| Vue | 27 | 1.000 | 0.213 | 0.143 |
-| Angular | 28 | 0.964 | 0.631 | 0.556 |
-| Vanilla | 28 | 1.000 | 0.532 | 0.510 |
+LLMs produce syntactically valid frontend code but the rendered output often contains visual defects (misalignment, overflow, poor contrast). GUI grounding models trained for web navigation — [JEDI](https://huggingface.co/xlangai/Jedi-7B-1080p), OmniParser — already understand spatial layout and element structure from screenshots. We test whether that understanding transfers to **identifying and repairing visual defects**.
 
-### Qwen2.5-VL-7B-Instruct
+Three planned approaches (see [`report_plan.tex`](report_plan.tex)):
 
-| Framework | N | CSR | CMLS | CMCS |
-|-----------|---|-----|------|------|
-| React | 28 | 0.250 | 0.182 | 0.139 |
-| Vue | 27 | 0.926 | 0.237 | 0.179 |
-| Angular | 28 | 0.571 | 0.304 | 0.206 |
-| Vanilla | 28 | 1.000 | 0.422 | 0.394 |
+1. **Zero-shot grounding transfer** — use JEDI/OmniParser as-is alongside Qwen2.5-VL-72B for code generation
+2. **LoRA fine-tuning** — adapt the grounding model to UI defect data
+3. **Multimodal RAG** — augment with retrieved Material Design guidelines
 
-### Paper Reference (Qwen2.5-VL, "both" mode)
-
-| Metric | Framework | 72B (paper) | 72B (ours) | 7B (paper) | 7B (ours) |
-|--------|-----------|-------------|------------|------------|-----------|
-| CSR | React | 1.000 | 0.857 | 0.286 | 0.250 |
-| | Vue | 1.000 | 1.000 | 0.111 | 0.926 |
-| | Angular | 0.929 | 0.964 | 0.036 | 0.571 |
-| CMLS | React | 0.634 | 0.339 | 0.362 | 0.182 |
-| | Vue | 0.509 | 0.213 | 0.245 | 0.237 |
-| | Angular | 0.676 | 0.631 | 0.641 | 0.304 |
-| | Vanilla | 0.609 | 0.532 | 0.499 | 0.422 |
-| CMCS | React | 0.542 | 0.230 | 0.257 | 0.139 |
-| | Vue | 0.392 | 0.143 | 0.180 | 0.179 |
-| | Angular | 0.571 | 0.556 | 0.577 | 0.206 |
-| | Vanilla | 0.586 | 0.510 | 0.478 | 0.394 |
-
-## Metrics
-
-- **CSR** (Compile Success Rate): Fraction of generated code that compiles without errors.
-- **CMLS** (Code Modification Location Similarity): Jaccard similarity of AST modification operations between ground truth and generated code.
-- **CMCS** (Code Modification Content Similarity): CodeBLEU score weighted by operation matching — measures whether the generated fix modifies the correct code in the correct way.
-- **MLLM-Judge**: GPT-4o visual similarity score (not reproduced — requires OpenAI API key).
-
-## Differences from Paper
-
-### Close matches
-- **Angular 72B** (CSR, CMLS, CMCS): All within ~5% of paper values.
-- **Vue 7B CMCS**: 0.179 vs paper 0.180 — nearly identical.
-- **React 7B CSR**: 0.250 vs paper 0.286 — within 1 sample difference.
-
-### Significant deviations
-- **Vue 7B CSR**: 0.926 vs paper 0.111. Our model compiles almost everything; the paper's does not.
-- **Angular 7B CSR**: 0.571 vs paper 0.036. Same direction — our model is far better at compiling.
-- **React/Vue 72B CMLS/CMCS**: Roughly half the paper values.
-
-### Explanations
-
-1. **Model version drift**: Alibaba silently updates `qwen2.5-vl-7b-instruct` and `qwen2.5-vl-72b-instruct` on Dashscope. No dated snapshots are available. The models we ran (March 2026) are likely newer checkpoints than the paper's (late 2024/early 2025). This explains why CSR improved dramatically for 7B — the model is simply better at producing compilable code now.
-
-2. **Browser/renderer versions**: CSR depends on the framework dev server accepting the code. We use Chrome 146 + Next.js/Vue/Angular versions from `npm install` at run time (March 2026), while the paper likely used earlier versions. Framework compilers evolve — code that failed to compile in an older Angular version may succeed in a newer one, and vice versa.
-
-3. **Node.js version**: We use Node v20.20.2; the paper's author environment used Node v18.19.0 (visible from hardcoded paths in the source). Different Node versions can affect framework build behavior.
-
-4. **CSR detection method**: CSR is computed by `collect_compile_information` in `compile.py`, which pattern-matches error strings in rendered HTML. The error overlay HTML structure is version-dependent (e.g., Next.js `nextjs-container-errors` class appeared in newer versions). We patched the React detection pattern; Vue/Angular patterns may still have version mismatches.
-
-5. **CMLS/CMCS lower for 72B**: The 72B model may be producing *functionally correct* repairs that differ structurally from the ground truth. A model that rewrites more code (rather than making minimal targeted edits) will have lower CMLS (fewer matching AST operations) even if the visual result is correct. This is a known limitation of edit-distance metrics.
-
-## Error Analysis
-
-### Identifying failure patterns
-
-The `gallery.html` viewer (generated by `gallery.py`) enables systematic visual comparison across all samples. Each card shows:
-- The **broken input** screenshot
-- The **ground truth** (repaired) screenshot
-- The **model's generated** screenshot
-- Per-sample metrics (CLIP, SSIM, CMLS, CMCS, Issue Accuracy)
-- A **CSR: PASS/FAIL** badge indicating compilation status
-
-Filter by framework, model, or sample number to isolate failure patterns.
-
-### Common failure patterns
-
-**1. Compile failures (CSR=FAIL)**
-- React 7B: 21/28 samples fail to compile. The 7B model frequently generates syntactically invalid JSX — unterminated strings (`Unterminated string constant`), unexpected tokens, or malformed component structures. The model attempts repairs but introduces new syntax errors.
-- Angular 7B: 12/28 fail. Angular's strict TypeScript compiler rejects type errors and missing imports that the model introduces.
-
-**2. Over-modification (low CMLS, high visual similarity)**
-- Many 72B samples show high CLIP/SSIM (the page looks correct) but low CMLS (the AST edits don't match ground truth). The model rewrites large sections of code rather than making targeted fixes. For example, on React sample 19, CLIP=0.786 but CMLS=0.058 — the model restructured the component while preserving visual output.
-
-**3. Issue-type blind spots (low Issue Accuracy)**
-- Samples involving `text overlap` and `overflow` issues have consistently lower accuracy across both models. The model struggles to identify that elements are overlapping or overflowing their containers, particularly when the visual cue is subtle.
-- `alignment` issues appear in nearly every sample and are handled inconsistently.
-
-**4. Framework-specific patterns**
-- **Vanilla HTML**: Highest CMLS/CMCS across both models because vanilla fixes tend to be CSS-level changes with fewer structural AST differences.
-- **Angular**: Highest CMLS/CMCS for 72B (0.631/0.556) because Angular's two-file structure (HTML + TypeScript) constrains the repair space — the model can't easily rewrite the entire component.
-- **Vue**: Lowest CMCS for 72B (0.143) — Vue SFC's template/script/style sections give the model too much freedom to restructure.
-
-## Repository Structure
+## Repository layout
 
 ```
-gui-g-gen/
-├── run_repair.py          # Main runner + evaluator script
-├── gallery.py             # Generates side-by-side HTML comparison gallery
-├── gallery.html           # Generated gallery (open in browser)
-├── DesignBench_Colab.ipynb # Google Colab notebook (alternative to local run)
-├── .env                   # API keys (QWEN_API_KEY, etc.)
-└── external/DesignBench/  # Cloned DesignBench repo
-    ├── code/
-    │   ├── runner/        # LLM caller + code extraction
-    │   ├── evaluator/     # Metrics (CSR, CMLS, CMCS, CLIP, SSIM)
-    │   │   └── res/DesignRepair/  # Cached evaluation JSONs
-    │   ├── mllm/          # Model API clients
-    │   └── prompting/     # Prompt templates + API keys
-    ├── data/DesignRepair/  # Input dataset (buggy code + ground truth)
-    ├── results/repair/     # Generated LLM outputs
-    └── web/               # React/Vue/Angular scaffold apps
+GUI-grounded-gen/
+├── report_plan.tex              # Project proposal
+│
+├── ui-repair-baseline/          # ✅ Baseline reproduction (complete)
+│   ├── run_repair.py            #    Qwen2.5-VL on DesignBench repair
+│   ├── gallery.py               #    Side-by-side visual comparison
+│   ├── error_analysis.py        #    Failure-pattern analysis
+│   ├── baseline_reproduction_results.tex
+│   └── README.md                #    Baseline-specific docs
+│
+├── grounding/                   # 🚧 Grounding model wrappers (Approach 1)
+│   └── jedi.py
+├── pipeline/                    # 🚧 End-to-end repair pipeline
+├── colab/                       # 🚧 Thin Colab runners (heavy compute)
+│
+├── external/                    # DesignBench clone (gitignored)
+├── requirements.txt             # Shared Python deps
+└── requirements-colab.txt       # Colab-only GPU deps
 ```
 
-## Usage
+## Current status
 
-### Prerequisites
+- **Baseline**: Qwen2.5-VL-72B and 7B reproduced on DesignBench repair (111 samples across React/Vue/Angular/Vanilla). 72B matches paper within 5% on Angular; 7B shows compile failure patterns that motivate the grounding approach. Details in [`ui-repair-baseline/baseline_reproduction_results.tex`](ui-repair-baseline/baseline_reproduction_results.tex).
+- **Approaches 1–3**: in progress.
+
+## Compute split
+
+**Local (Mac)**: write code, small-scale tests, inspect gallery outputs.
+**Colab (A100/L4)**: grounding model inference, full 111-sample benchmark runs, LoRA fine-tuning.
+
+Code lives in Python modules (`grounding/`, `pipeline/`) so the same entrypoints run in both environments. Colab notebooks in [`colab/`](colab/) are thin wrappers that `git clone` and delegate to scripts.
+
+## Setup
 
 ```bash
-conda activate designbench
-# npm AST parsers (one-time)
-npm install @babel/parser @vue/compiler-dom parse5 --prefix external/DesignBench
+# Clone DesignBench (for baseline reproduction)
+git clone https://github.com/WebPAI/DesignBench.git external/DesignBench
+
+# Python deps
+pip install -r requirements.txt
+
+# Baseline-specific setup (npm parsers, web apps)
+cd ui-repair-baseline && bash setup_local.sh
 ```
 
-### Running the benchmark
-
-```bash
-# Pre-flight check — verify config, paths, API keys
-python run_repair.py --dry-run
-
-# Quick test: 2 samples per framework
-python run_repair.py
-
-# Full benchmark: all samples, all frameworks
-python run_repair.py --full
-
-# Specific frameworks and sample count
-python run_repair.py --frameworks react vue --samples 5
-
-# Full run with specific model
-python run_repair.py --full --model qwen2.5-vl-72b-instruct
-
-# Evaluate existing results without re-running LLM
-python run_repair.py --full --eval-only
-
-# Generate only, skip evaluation
-python run_repair.py --full --no-eval
-```
-
-### Generating the gallery
-
-```bash
-python gallery.py
-# Then open gallery.html in a browser
-```
-
-### Colab alternative
-
-Upload `DesignBench_Colab.ipynb` to Google Colab and follow the cell-by-cell instructions. The notebook handles environment setup (Chrome, Node, Python packages) and includes all necessary patches for running DesignBench in Colab's environment.
-
-## Key files
-
-| File | Purpose |
-|------|---------|
-| `run_repair.py` | End-to-end runner: LLM generation → dev servers → evaluation → summary. Wraps DesignBench's own `Runner`, `evaluate_repair`, and `collect_compile_information`. |
-| `gallery.py` | Generates `gallery.html` — a filterable visual comparison of broken input, ground truth, and generated output for every sample. Each card shows per-sample metrics and CSR pass/fail status. |
-| `DesignBench_Colab.ipynb` | Google Colab notebook with patches for lazy imports, Chrome rendering, international Qwen API endpoint, and correct data paths. |
+See [`ui-repair-baseline/README.md`](ui-repair-baseline/README.md) for detailed baseline instructions.

@@ -1,4 +1,32 @@
-/external
-ui-repair-baseline/results/
-/node_modules
 .env
+
+# DesignBench baseline
+/external
+/node_modules
+ui-repair-baseline/results/
+ui-repair-baseline/node_modules/
+
+# Model weights and caches
+weights/
+models/
+.huggingface/
+*.pt
+*.bin
+*.safetensors
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Generated artifacts
+*.log
+.gstack/

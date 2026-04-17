@@ -1,0 +1,172 @@
+\documentclass[11pt]{article}
+\usepackage{acl}
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{inconsolata}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+
+
+\captionsetup{skip=4pt}
+
+\setlength{\textfloatsep}{8pt}   % space above/below floats
+\setlength{\floatsep}{6pt}       % space between floats
+\setlength{\intextsep}{6pt}      % space for in-text floats
+
+\title{Repurposing GUI Grounding for Automated UI Code Repair}
+
+\author{Alice Le \\
+  Carnegie Mellon University \\
+  \texttt{anhle@andrew.cmu.edu} \\\And
+  Isaac Au \\
+  Carnegie Mellon University \\
+  \texttt{yau@andrew.cmu.edu} \\}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Coding agents produce frontend code that frequently contains visual defects even with multimodal evaluation-correction loops. We propose repurposing GUI grounding models, originally trained for agentic web navigation, as  visual critics for automated UI code repair. Our general approach is to pass rendered screenshots through a grounding model (JEDI or OmniParser) to localize possible visual defects. Then, we can pass the output to an LLM to correct them. We propose three approaches: zero-shot grounding transfer, LoRA fine-tuning on UI defect data, or augmentation with design guidelines retrieved via multimodal RAG. 
+\end{abstract}
+
+\section{Introduction and Motivation}
+% General research topic
+% Significance and motivation
+AI-powered coding agents can produce syntactically valid frontend code. Yet, the resulting interfaces frequently contain visual defects immediately apparent to humans: misaligned spacing, poor visual hierarchy, and inconsistent component styling. These perceptual failures arise because LLMs reason about UIs purely as text while never observing the rendered output. For instance, two buttons with nearly identical HTML may appear indistinguishable at the token level, while the latter is better in terms of contrast. (Figure~\ref{fig:buttons}).
+
+\begin{figure}[H]
+\centering
+    \includegraphics[width=\columnwidth]{figures/figure1.png}
+    \caption{Two structurally identical HTML buttons. The latter button (white-on-blue) is a better UI choice in comparison with the former, which violates basic contrast conventions}
+    \label{fig:buttons}
+\end{figure}
+
+Recent multimodal approaches, including DOM-based inspection and screenshot-to-code pipelines, have attempted to close this gap but remain insufficient. Even when provided with both rendered screenshots and source code, frontier models such as Claude Opus 4.6 fail to reliably localize and repair fine-grained visual defects (Figure~\ref{fig:opus-failure}). We refer to this disconnect as the \textit{perceptual gap} in UI code generation.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\columnwidth]{figures/figure2.png}
+    \caption{Opus 4.6, given both screenshots and the input HTML code, fails 3/3 attempts to fix missing corners and clipped edges after prompting.}
+    \label{fig:opus-failure}
+\end{figure}
+
+Crucially, structured visual understanding of interfaces already exists in a neighboring domain. GUI grounding models such as JEDI \cite{jedi2025} and OmniParser \cite{omniparser2025}, trained for web navigation, can localize interactive components, parse layout structure, and interpret visual hierarchy from screenshots. However, these capabilities have been applied exclusively to navigation. This motivates our central question: \textbf{can the spatial and semantic understanding that GUI grounding models acquire from navigation tasks transfer to a fundamentally different objective: identifying and correcting visual defects in machine-generated frontend code?}
+
+\section{Related Work}
+
+Our work draws on four intersecting research areas: screenshot-to-code generation, iterative visual critique and refinement, design-knowledge-augmented repair, and GUI grounding. We organize these into two thematic areas based on their relationship to our proposed approach, then synthesize cross-cutting trends and identify the gaps that motivate our work.
+
+\subsection{UI Code Generation, Visual Critique, and Design-Aware Repair}
+
+\paragraph{Screenshot-to-code generation.} Design2Code \cite{design2code2024} established the foundational task formulation and benchmark for converting webpage screenshots into HTML/CSS. The work curated 484 real-world webpages from the C4 dataset and introduced a suite of automatic evaluation metrics capturing both high-level visual similarity (via CLIP embeddings) and fine-grained element-level matching (comparing bounding boxes, text content, position, and color of matched visual elements). While generation quality has improved rapidly since the benchmark's release, the work established a key finding: single-pass generation consistently leaves visual defects that motivate iterative refinement.
+
+\paragraph{Iterative visual critique and refinement.} A central insight from Design2Code's self-revision results is that single-pass generation is insufficient. It is more imperative to have iterative feedback loops that incorporate visual signals consistently. Two recent models formalize this insight into a reinforcement learning problem with visual rewards. ReLook \cite{relook2025} closes a generate-diagnose-refine loop in which a policy LLM generates code, a vision-aware MLLM critic scores the rendered screenshot and provides textual feedback, and GRPO optimizes the policy based on this combined signal. VisRefiner \cite{visrefiner2026} takes a complementary approach, training on paired visual deviations and code edits so the model maps pixel-level discrepancies directly to fixes via GRPO. Both systems confirm that visual feedback reliably improves over single-pass generation.
+
+However, both systems ground their critique entirely in comparison against a reference design, limiting applicability in real-world development where the developer is iterating toward a new design rather than reproducing an existing one. Furthermore, neither system incorporates external design principles. Both remain closed-source as of this writing.
+
+\paragraph{Design-knowledge-augmented repair.} DesignRepair \cite{designrepair2024} addresses this gap by incorporating external design expertise through retrieval-augmented generation. The system constructs a two-part knowledge base from Google's Material Design 3 guidelines: a low-level Component Knowledge Base encoding guidelines for individual elements (e.g., button sizing, contrast requirements), and a high-level System Design Knowledge Base capturing broader principles (e.g., visual hierarchy, spacing systems). Given a rendered page, DesignRepair extracts UI components and their properties via DOM parsing and code inspection, retrieves relevant guidelines, and applies an LLM-based repair method that identifies violations and generates corrective code edits. The system distinguishes between hard constraints (mandatory for usability and accessibility) and soft constraints (recommended for aesthetics), and evaluation showed strong repair performance on both AI-generated and real-world GitHub projects.
+
+However, DesignRepair's page extraction relies entirely on DOM parsing rather than visual analysis of the rendered screenshot. This means the system cannot detect defects that are only visible in the rendered output, such as layout overflow, z-index conflicts, or visual inconsistencies arising from CSS interactions. Additionally, the knowledge base consists primarily of textual guidelines without visual examples, limiting the system's ability to assess compliance with design principles that are inherently visual.
+
+\subsection{GUI Grounding for Interface Understanding}
+
+GUI grounding models are trained to localize and describe interface elements from rendered screenshots, originally for agentic web browsing and navigation tasks. These models have great spatial and semantic understanding that can be repurposed for visual quality assessment.
+
+JEDI \cite{jedi2025} introduces a 4-million-example dataset synthesized through multi-perspective task decoupling: UI icons are mined from open-source repositories, components are rendered from production UI libraries (Material UI, Ant Design), and layouts are sampled from actual operating system screens. Given a natural language instruction and a rendered screenshot, JEDI produces bounding-box coordinates alongside a natural language description of the element's spatial context and functionality. The model's training decomposes grounding into distinct subtasks including icon recognition, component manipulation, layout understanding, and fine-grained element interaction (e.g., adjusting sliders, selecting text at the character level). Multi-scale models trained on JEDI achieve state-of-the-art performance on ScreenSpot-v2 and ScreenSpot-Pro benchmarks, and integration with GPT-4o as a high-level planner improved agentic task success rates on OSWorld from 23\% to 51\%.
+
+OmniParser \cite{omniparser2025} takes a different approach, focusing on detecting interactable UI elements without requiring a natural language query. Given a screenshot, OmniParser identifies buttons, text fields, icons, and navigation components, producing a structured element list with bounding boxes, element types, and text content. This effectively tokenizes the visual interface into discrete components that can be processed by downstream models. While less capable than JEDI at complex grounding tasks, OmniParser's query-free element detection is well-suited for scenarios where the goal is to enumerate all UI components rather than locate a specific one.
+
+\subsection{Trends and Gaps}
+
+Two clear trends emerge across these lines of work. First, iterative visual feedback consistently improves UI code quality over single-pass generation, as demonstrated by Design2Code, ReLook, and VisRefiner—though these systems ground their critique entirely in reference comparison, meaning they cannot identify violations of design conventions unless those violations also diverge from a pixel-level target. Second, structured representations of the visual interface provide more actionable signals than raw screenshots alone. GUI grounding models like JEDI and OmniParser parse interfaces into spatially grounded, semantically labeled components, while DesignRepair's knowledge-base retrieval provides normative context—but DesignRepair relies on DOM parsing that misses defects visible only in rendered output, and grounding models have never been applied beyond navigation to assess whether a UI element is well-designed.
+No existing method jointly leverages visual grounding, design knowledge, and quality assessment. 
+
+
+%\paragraph{Critique without design knowledge.} ReLook and VisRefiner's feedbacks are entirely relative: it measures how closely the rendered output matches a reference design. This approach cannot identify violations of design conventions unless those violations also happen to diverge from a pixel-level reference. In real-world development, where the developer is creating a new design rather than reproducing one, reference-based critique is insufficient.
+
+%\paragraph{Design knowledge without visual grounding.} DesignRepair incorporates Material Design principles through RAG, demonstrating that external design knowledge improves repair quality. However, its reliance on DOM-based page extraction means it cannot detect defects that manifest only in the rendered output. Visual grounding models have been shown to capture layout and styling relationships that DOM parsing misses, particularly for properties arising from CSS interactions, responsive behavior, and visual hierarchy.
+
+%\paragraph{Visual grounding without quality assessment.} GUI grounding models like JEDI and OmniParser possess strong spatial and semantic understanding of interface elements, but this capability has been applied exclusively to element localization for navigation tasks. The question of whether this understanding transfers to quality assessment remains unexplored.
+
+Our work aims to bridge these gaps by repurposing GUI grounding as a structured visual critic for UI code and augmenting it with multimodal design knowledge retrieved through RAG. This combination addresses the limitations of each prior line of work: grounding provides the spatial precision that DesignRepair's DOM extraction lacks, design knowledge provides the normative signal that ReLook and VisRefiner's reference-based critique lacks, and applying grounding to quality assessment extends the capability beyond navigation.
+
+\section{Proposed Approaches}
+
+We propose a series of 3 experiments to test whether GUI grounding models can serve as effective visual critics for UI code improvement. Our approaches share a common pipeline (Figure~\ref{fig:approaches}): a rendered screenshot is passed through a GUI grounding model that produces structured output (bounding boxes, element types, and defect descriptions). Alongside the structured output, we feed the original HTML/CSS into an LLM that produces corrected HTML/CSS. The approaches differ in how the grounding step is configured and what additional knowledge is provided to the generation step.
+
+\begin{figure*}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/figure3.png}
+    \caption{Overview of proposed approaches. Approach 1 uses GUI grounding (zero-shot) to produce structured critique. The others are improved approaches, where approach 2 will be fine-tuned and approach 3 augments the generation step with design guidelines retrieved via multimodal RAG.}
+    \label{fig:approaches}
+\end{figure*}
+
+\subsection{GUI Grounding as Visual Critic}
+
+Our central hypothesis is that GUI grounding models trained for navigation already possess the spatial and semantic understanding needed to identify visual defects in rendered UIs. To test this, we repurpose the grounding step: rather than asking ``where should I click to perform action X,'' we ask ``what UI elements are present, where are they, and what are their properties.'' 
+
+Then, we pass the image and query through JEDI-7B or OmniParser v2 to produce a structured element list. Each entry contains the element's bounding box coordinates, its inferred type (button, text field, icon, navigation component, etc.), and a natural language description of its spatial context. This structured output is then concatenated with the original HTML/CSS source code and provided to a code-generation LLM (Qwen2.5-VL-7B). We would then prompt it to (1) identify visual defects by cross-referencing the grounding output against the source code, and (2) produce corrective code edits.
+
+The key question is whether this pipeline improves over a baseline where the LLM receives only the raw screenshot and source code without grounding. Our zero-shot approach would be the cleanest test of transferability: if a grounding model trained entirely on navigation data can improve UI repair quality in a zero-shot setting, it provides strong evidence that the perceptual understanding these models acquire generalizes beyond their training task.
+
+As for compute estimate, approach 1 requires no training; evaluation cost is approximately \$1--5 in API calls over roughly 2 hours of single-threaded inference.
+
+\subsection{GUI Grounding with LoRA Fine-tuning}
+
+If zero-shot transfer proves insufficient, we investigate whether lightweight fine-tuning can bridge the gap. We apply LoRA adaptation to the grounding model on a corpus of UI screenshots with annotated visual defects. The fine-tuning corpus will be described in Section 4.
+
+We hypothesize that SFT on UI defect data transfers naturally to GUI grounding models precisely because these models already operate on the rendered visual interface. DOM-based approaches cannot leverage this alignment because they reason about code structure, which does not directly encode visual properties like spacing consistency, color contrast, or hierarchy. A grounding model that already ``sees'' the interface as a human would should require only a small amount of design-aware supervision to shift from element localization to defect detection. 
+
+We plan to compare two grounding models (JEDI-7B and OmniParser v2) across both zero-shot and fine-tuned settings, yielding a $2 \times 2$ ablation that isolates the effects of model choice and task-specific adaptation independently.
+
+Approach 2 adds LoRA fine-tuning at approximately \$15 per run; with six planned ablation configurations, total training cost is approximately \$90. Both JEDI-7B ($\sim$16GB VRAM) and OmniParser v2 ($\sim$8GB VRAM) can be run on a single GPU.
+
+\subsection{Grounded Critic with Multimodal RAG Augmentation}
+
+Our third line of investigation tests whether augmenting the critique-and-repair pipeline with external design knowledge yields further improvements. We construct a multimodal knowledge base from design guidelines (e.g., Google's Material Design), including both textual rules and visual examples of correct and incorrect implementations. At inference time, the grounding model's structured output is used to retrieve relevant guidelines, which are then provided to the code-generation LLM alongside the grounding critique and the original code.
+
+We place RAG at the generation step rather than the grounding step for two reasons. First, this keeps the grounding model's role clean: it answers ``what elements are here and where are they'' using purely visual understanding, preserving a clear ablation against Approaches 1 and 2. Second, JEDI and OmniParser are not architecturally designed to accept retrieved context as additional input, whereas providing guidelines to the downstream LLM is straightforward. We note that augmenting the grounding step itself is a viable alternative that we leave to future work.
+We place RAG at the generation step rather than the grounding step for two reasons. First, this keeps the grounding model's role clean: it answers ``what elements are here and where are they'' using purely visual understanding, preserving a clear ablation against Approaches 1 and 2. Second, JEDI and OmniParser are not architecturally designed to accept retrieved context as additional input, whereas providing guidelines to the downstream LLM is straightforward. We note that augmenting the grounding step itself is a viable alternative that we leave to future work.
+
+This approach directly addresses the limitation we identified in DesignRepair: rather than extracting page structure through DOM parsing, we use visual grounding to identify elements and their spatial relationships, then retrieve design guidelines that include visual examples alongside textual rules.
+
+RAG construction is a one-time cost of embedding and indexing the design guideline corpus. Inference cost is comparable to Approach 1, with additional overhead from retrieval ($<$\$1 per evaluation run).
+
+\section{Proposed Data}
+
+Approach 1 requires no training data since it is zero shot. For Approach 2, we construct a fine-tuning corpus from two sources. First, we synthetically generate flawed UIs by applying perturbations (style jittering, color swaps, padding/margin corruption, z-index shuffling) to clean webpages from the Design2Code dataset (484 webpages), annotating introduced defect locations as supervision targets. Second, we adapt OwlEyes \cite{owleyes2021}, which provides 4,470 GUI screenshots with real-world display issues such as text overlap and component occlusion. We note a potential domain gap: OwlEyes covers mobile GUIs, while our task targets web UIs; we plan to filter for transferable defect types. For Approach 3, we construct a multimodal RAG knowledge base from Material Design guidelines, including both textual rules and screenshot examples of compliant and non-compliant components, embedded and indexed for retrieval at inference time.
+\section{Proposed Evaluation}
+
+\subsection{Evaluation Criteria}
+
+Our evaluation targets three constructs: (1) \textit{visual fidelity}, whether the repaired output resolves visual defects present in the input; (2) \textit{design convention adherence}, whether the output follows established UI principles; and (3) \textit{component completeness}, whether all UI components present in the reference are preserved after repair, since fixes that resolve one defect but remove or break other components represent a net regression.
+
+\subsection{Baselines}
+
+We evaluate on DesignBench's \cite{designbench2025} repair subtask, which provides UI screenshots with annotated visual defects and corresponding HTML/CSS source code. We define two baselines using the same code-generation model (Qwen2.5-VL-7B) shared across all conditions:
+
+\paragraph{Baseline 1: No grounding.} Qwen2.5-VL-7B receives the rendered screenshot and source code directly, prompted to identify and fix visual defects. This isolates the contribution of GUI grounding across Approaches 1--3.
+
+\paragraph{Baseline 2: Text-only RAG.} Qwen2.5-VL-7B receives the screenshot, source code, and design guidelines retrieved via text-only RAG (no grounding output). This isolates the contribution of visual grounding in Approach 3 by testing whether design knowledge alone, without spatially structured critique, suffices for effective repair.
+
+\subsection{Metrics}
+
+Our primary metric is visual fidelity and design convention adherence. A successful repair reduces defects without introducing new violations. We additionally track missing component count to ensure repairs do not eliminate UI elements while fixing others. For component-level evaluation, we assess the grounding step independently using defect detection precision and recall against annotated ground-truth defect locations on a sampled subset.
+
+We report results across ablation conditions. Approach 1 ablating across grounding model choice (JEDI-7B vs.\ OmniParser v2), Approach 2 ablating across LoRA fine-tuning configurations, and Approach 3 ablating across RAG retrieval settings.
+
+\subsection{Qualitative Analysis}
+
+We categorize failure modes along two dimensions: by defect type (using DesignBench's \cite{designbench2025} 6 issue categories to test whether grounding helps more for certain categories than others) and by grounding error type (false negatives, false positives, and actionability failures where grounding output is correct but the LLM cannot act on it). We annotate a sample of 50 failure cases across conditions. We also plan a small-scale human correlation study to validate that our automated metrics align with human judgment.
+
+
+
+
+\bibliographystyle{acl}
+\bibliography{latex/references}
+
+\end{document}
