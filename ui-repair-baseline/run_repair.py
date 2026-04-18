@@ -51,7 +51,10 @@ SYMLINKS = {
     "data/compile": "data/DesignCompile",
 }
 for link, target in SYMLINKS.items():
-    if os.path.exists(target) and not os.path.exists(link):
+    # Remove broken symlinks (e.g., from a tarball originating on another machine)
+    if os.path.islink(link) and not os.path.exists(link):
+        os.unlink(link)
+    if os.path.exists(target) and not os.path.lexists(link):
         os.symlink(os.path.abspath(target), link)
 
 print("[boot] Symlinks done. Loading env...", flush=True)
@@ -112,6 +115,9 @@ def symlink_results():
         results_dir = os.path.join(DESIGNBENCH_ROOT, "results", task)
         target_dir = os.path.join(DESIGNBENCH_ROOT, "data", eval_subdir)
         if os.path.exists(results_dir):
+            # Clear broken symlinks from cross-machine tarballs
+            if os.path.islink(target_dir) and not os.path.exists(target_dir):
+                os.unlink(target_dir)
             os.makedirs(target_dir, exist_ok=True)
             for item in os.listdir(results_dir):
                 src = os.path.join(results_dir, item)

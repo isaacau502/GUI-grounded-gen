@@ -30,3 +30,4 @@ __pycache__/
 # Generated artifacts
 *.log
 .gstack/
+designbench_full.tar
