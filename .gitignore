@@ -31,3 +31,4 @@ __pycache__/
 *.log
 .gstack/
 designbench_full.tar
+colab/out/
