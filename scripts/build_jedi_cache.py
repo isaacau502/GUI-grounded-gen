@@ -82,7 +82,16 @@ def load_issues(meta_path: Path) -> list:
     return []
 
 
-def main():
+def main(llm=None):
+    """Run the cache builder.
+
+    If `llm` is provided (an already-loaded vllm LLM handle — e.g., from a
+    Colab notebook cell that just ran `llm = LLM(...)` for JEDI), the
+    builder reuses it instead of loading a fresh engine. This avoids the
+    "Free memory on device cuda:0" failure that happens when a `!python`
+    subprocess tries to allocate a second vllm engine alongside the one
+    already held by the notebook kernel.
+    """
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
 
     # Resume if partial cache exists.
@@ -92,16 +101,18 @@ def main():
             cache = json.load(f)
         print(f"Resuming from {OUT_PATH} ({len(cache)} entries).")
 
-    # Allow weights_dir via env var; JEDI class accepts HF repo ids. We pass
-    # the env path through as-is (JEDI caches under HF_HOME or reads a local
-    # snapshot directly).
-    jedi_model = os.environ.get("JEDI_MODEL", "xlangai/Jedi-7B-1080p")
-    if os.path.isdir(JEDI_WEIGHTS):
-        # Use a local snapshot path if provided; otherwise rely on HF cache.
-        jedi_model = JEDI_WEIGHTS
-
-    jedi = JEDI(model_path=jedi_model)
-    print(f"JEDI loaded from {jedi_model}.")
+    if llm is not None:
+        # Reuse existing LLM — wrap in a JEDI shell without re-loading weights.
+        jedi = JEDI.__new__(JEDI)
+        jedi.llm = llm
+        print("Reusing existing vllm LLM handle (no re-load).")
+    else:
+        # Allow weights_dir via env var; JEDI class accepts HF repo ids.
+        jedi_model = os.environ.get("JEDI_MODEL", "xlangai/Jedi-7B-1080p")
+        if os.path.isdir(JEDI_WEIGHTS):
+            jedi_model = JEDI_WEIGHTS
+        jedi = JEDI(model_path=jedi_model)
+        print(f"JEDI loaded from {jedi_model}.")
 
     samples = list(iter_samples())
     print(f"Processing {len(samples)} samples.")
