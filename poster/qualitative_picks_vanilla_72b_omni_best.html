@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Qualitative candidates: vanilla × 72b × omni</title>
+<style>
+  body { font-family: sans-serif; max-width: 1600px; margin: 20px auto; padding: 10px; }
+  h1 { font-size: 22px; }
+  h2 { font-size: 18px; margin-top: 30px; border-bottom: 2px solid #333; padding-bottom: 4px; }
+  .row { display: flex; gap: 10px; margin-bottom: 24px; align-items: flex-start; }
+  .col { flex: 1; text-align: center; }
+  .col img {
+    width: 100%; max-height: 400px; object-fit: contain;
+    border: 1px solid #ccc; background: #fafafa;
+  }
+  .col .label { font-size: 13px; font-weight: bold; margin-top: 4px; }
+  .col.missing img { content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60"><rect fill="%23eee" width="100" height="60"/><text x="50" y="30" text-anchor="middle" dominant-baseline="middle" fill="%23999" font-size="10">COMPILE FAIL</text></svg>'); }
+  .meta { font-size: 12px; color: #555; }
+  .gain-good { color: #1a7f37; font-weight: bold; }
+  .gain-bad { color: #a00; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Qualitative candidates: <code>vanilla</code> × Qwen2.5-VL-<code>72b</code> × <code>+omni</code></h1>
+<p class="meta">Ranked by CLIP gain (variant minus baseline). Top 10 shown.</p>
+<p class="meta">Column order: <b>broken input</b> | <b>reference target</b> | <b>baseline repair</b> | <b>+omni repair</b>.</p>
+<h2>#1 — sample <code>24</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.490 → variant=0.668 <span class="gain-good">(+0.178)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/24/24.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/vanilla_omni_24.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/24/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct/vanilla_24_qwen2.5-vl-72b-instruct_vanilla_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct+omni/vanilla_24_qwen2.5-vl-72b-instruct+omni_vanilla_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#2 — sample <code>22</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.809 → variant=0.862 <span class="gain-good">(+0.053)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/22/22.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/vanilla_omni_22.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/22/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct/vanilla_22_qwen2.5-vl-72b-instruct_vanilla_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct+omni/vanilla_22_qwen2.5-vl-72b-instruct+omni_vanilla_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#3 — sample <code>12</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.814 → variant=0.860 <span class="gain-good">(+0.046)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/12/12.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/vanilla_omni_12.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/12/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct/vanilla_12_qwen2.5-vl-72b-instruct_vanilla_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct+omni/vanilla_12_qwen2.5-vl-72b-instruct+omni_vanilla_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#4 — sample <code>1</code> · issue: <code>occlusion</code></h2>
+<div class="meta">
+  CLIP baseline=0.846 → variant=0.887 <span class="gain-good">(+0.041)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/1/1.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/vanilla_omni_1.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/1/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct/vanilla_1_qwen2.5-vl-72b-instruct_vanilla_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct+omni/vanilla_1_qwen2.5-vl-72b-instruct+omni_vanilla_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#5 — sample <code>7</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.833 → variant=0.868 <span class="gain-good">(+0.034)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/7/7.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/vanilla_omni_7.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/7/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct/vanilla_7_qwen2.5-vl-72b-instruct_vanilla_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct+omni/vanilla_7_qwen2.5-vl-72b-instruct+omni_vanilla_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#6 — sample <code>3</code> · issue: <code>overflow</code></h2>
+<div class="meta">
+  CLIP baseline=0.849 → variant=0.883 <span class="gain-good">(+0.034)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/3/3.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/vanilla_omni_3.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/3/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct/vanilla_3_qwen2.5-vl-72b-instruct_vanilla_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct+omni/vanilla_3_qwen2.5-vl-72b-instruct+omni_vanilla_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#7 — sample <code>2</code> · issue: <code>occlusion, alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.708 → variant=0.738 <span class="gain-good">(+0.030)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/2/2.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/vanilla_omni_2.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/2/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct/vanilla_2_qwen2.5-vl-72b-instruct_vanilla_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct+omni/vanilla_2_qwen2.5-vl-72b-instruct+omni_vanilla_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#8 — sample <code>9</code> · issue: <code>alignment, crowding</code></h2>
+<div class="meta">
+  CLIP baseline=0.814 → variant=0.838 <span class="gain-good">(+0.024)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/9/9.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/vanilla_omni_9.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/9/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct/vanilla_9_qwen2.5-vl-72b-instruct_vanilla_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct+omni/vanilla_9_qwen2.5-vl-72b-instruct+omni_vanilla_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#9 — sample <code>13</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.622 → variant=0.644 <span class="gain-good">(+0.022)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/13/13.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/vanilla_omni_13.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/13/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct/vanilla_13_qwen2.5-vl-72b-instruct_vanilla_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct+omni/vanilla_13_qwen2.5-vl-72b-instruct+omni_vanilla_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#10 — sample <code>25</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.830 → variant=0.850 <span class="gain-good">(+0.020)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/25/25.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/vanilla_omni_25.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/vanilla/25/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct/vanilla_25_qwen2.5-vl-72b-instruct_vanilla_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/vanilla-vanilla/qwen2.5-vl-72b-instruct+omni/vanilla_25_qwen2.5-vl-72b-instruct+omni_vanilla_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+</body></html>

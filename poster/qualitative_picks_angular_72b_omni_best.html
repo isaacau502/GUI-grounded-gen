@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Qualitative candidates: angular × 72b × omni</title>
+<style>
+  body { font-family: sans-serif; max-width: 1600px; margin: 20px auto; padding: 10px; }
+  h1 { font-size: 22px; }
+  h2 { font-size: 18px; margin-top: 30px; border-bottom: 2px solid #333; padding-bottom: 4px; }
+  .row { display: flex; gap: 10px; margin-bottom: 24px; align-items: flex-start; }
+  .col { flex: 1; text-align: center; }
+  .col img {
+    width: 100%; max-height: 400px; object-fit: contain;
+    border: 1px solid #ccc; background: #fafafa;
+  }
+  .col .label { font-size: 13px; font-weight: bold; margin-top: 4px; }
+  .col.missing img { content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60"><rect fill="%23eee" width="100" height="60"/><text x="50" y="30" text-anchor="middle" dominant-baseline="middle" fill="%23999" font-size="10">COMPILE FAIL</text></svg>'); }
+  .meta { font-size: 12px; color: #555; }
+  .gain-good { color: #1a7f37; font-weight: bold; }
+  .gain-bad { color: #a00; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Qualitative candidates: <code>angular</code> × Qwen2.5-VL-<code>72b</code> × <code>+omni</code></h1>
+<p class="meta">Ranked by CLIP gain (variant minus baseline). Top 10 shown.</p>
+<p class="meta">Column order: <b>broken input</b> | <b>reference target</b> | <b>baseline repair</b> | <b>+omni repair</b>.</p>
+<h2>#1 — sample <code>20</code> · issue: <code>alignment, crowding, overflow</code></h2>
+<div class="meta">
+  CLIP baseline=0.000 → variant=0.794 <span class="gain-good">(+0.794)</span> ·
+  compile: baseline=False, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/20/20.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/angular_omni_20.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/20/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col missing"><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct/angular_20_qwen2.5-vl-72b-instruct_angular_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct+omni/angular_20_qwen2.5-vl-72b-instruct+omni_angular_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#2 — sample <code>25</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.766 → variant=0.816 <span class="gain-good">(+0.050)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/25/25.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/angular_omni_25.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/25/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct/angular_25_qwen2.5-vl-72b-instruct_angular_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct+omni/angular_25_qwen2.5-vl-72b-instruct+omni_angular_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#3 — sample <code>13</code> · issue: <code>overflow, occlusion, alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.820 → variant=0.860 <span class="gain-good">(+0.039)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/13/13.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/angular_omni_13.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/13/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct/angular_13_qwen2.5-vl-72b-instruct_angular_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct+omni/angular_13_qwen2.5-vl-72b-instruct+omni_angular_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#4 — sample <code>15</code> · issue: <code>occlusion, disorder</code></h2>
+<div class="meta">
+  CLIP baseline=0.777 → variant=0.815 <span class="gain-good">(+0.039)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/15/15.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/angular_omni_15.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/15/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct/angular_15_qwen2.5-vl-72b-instruct_angular_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct+omni/angular_15_qwen2.5-vl-72b-instruct+omni_angular_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#5 — sample <code>16</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.901 → variant=0.937 <span class="gain-good">(+0.036)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/16/16.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/angular_omni_16.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/16/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct/angular_16_qwen2.5-vl-72b-instruct_angular_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct+omni/angular_16_qwen2.5-vl-72b-instruct+omni_angular_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#6 — sample <code>4</code> · issue: <code>alignment, overflow</code></h2>
+<div class="meta">
+  CLIP baseline=0.807 → variant=0.839 <span class="gain-good">(+0.033)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/4/4.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/angular_omni_4.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/4/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct/angular_4_qwen2.5-vl-72b-instruct_angular_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct+omni/angular_4_qwen2.5-vl-72b-instruct+omni_angular_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#7 — sample <code>12</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.875 → variant=0.906 <span class="gain-good">(+0.031)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/12/12.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/angular_omni_12.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/12/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct/angular_12_qwen2.5-vl-72b-instruct_angular_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct+omni/angular_12_qwen2.5-vl-72b-instruct+omni_angular_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#8 — sample <code>19</code> · issue: <code>crowding, occlusion, alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.884 → variant=0.912 <span class="gain-good">(+0.028)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/19/19.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/angular_omni_19.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/19/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct/angular_19_qwen2.5-vl-72b-instruct_angular_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct+omni/angular_19_qwen2.5-vl-72b-instruct+omni_angular_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#9 — sample <code>3</code> · issue: <code>alignment, crowding</code></h2>
+<div class="meta">
+  CLIP baseline=0.879 → variant=0.903 <span class="gain-good">(+0.024)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/3/3.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/angular_omni_3.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/3/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct/angular_3_qwen2.5-vl-72b-instruct_angular_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct+omni/angular_3_qwen2.5-vl-72b-instruct+omni_angular_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+<h2>#10 — sample <code>14</code> · issue: <code>occlusion, alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.900 → variant=0.923 <span class="gain-good">(+0.023)</span> ·
+  compile: baseline=True, variant=True
+</div>
+<div class="row">
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/14/14.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="grounding_overlays/angular_omni_14.png"/><div class="label">OMNI OUTPUT (bboxes)</div></div>
+  <div class="col"><img src="../external/DesignBench/data/DesignRepair/angular/14/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct/angular_14_qwen2.5-vl-72b-instruct_angular_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col "><img src="../external/DesignBench/results/repair/angular-angular/qwen2.5-vl-72b-instruct+omni/angular_14_qwen2.5-vl-72b-instruct+omni_angular_both.png"/><div class="label">+OMNI REPAIR</div></div>
+</div>
+
+</body></html>
