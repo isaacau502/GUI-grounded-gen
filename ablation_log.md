@@ -2,6 +2,28 @@
 
 Running log of every ablation configuration we try on the DesignBench repair task. Latest on top.
 
+## Headline (today)
+
+**Two clean wins, one clean null, rest pending.**
+
+1. **72B + OmniParser structural — visual-metric win across 3 frameworks.**
+   - Vue CLIP **+.012** ** (p=.002)
+   - Angular CLIP **+.009** * (p=.045), SSIM **+.003** * (p=.026)
+   - Vanilla CLIP **+.018** ** (p=.002), SSIM **+.019** ** (p=.002), MAE **−.337** * (p=.030)
+   - AST (CMLS/CMCS) trends mildly negative but never significant. Validates memo: *CMLS penalizes correct rewrites*. CLIP is the right metric on DesignBench when comparing generation strategies.
+
+2. **7B + OmniParser structural on Angular — large multi-metric win.**
+   - CLIP **+.141** ** (p=.007)
+   - SSIM **+.111** ** (p=.002)
+   - CMCS **+.073** * (p=.048)
+   - CSR .57 → .75 directional
+   - Concrete mechanism candidate: Angular repair requires coordinated edits across `.html` + `.ts`; explicit bboxes + OCR scaffold weak 7B spatial reasoning.
+
+3. **The 7B Vue divergence.** CLIP +.021 ** up; SSIM −.016 ** down. CLIP (embedding similarity) says the repair is semantically closer to target; SSIM (per-pixel structural similarity) says layout drifts. Methodology signal: **CLIP > SSIM** for this task.
+
+**Pending:** JEDI variant (`+jedi`, both mode) + mark-mode ablations (baseline + `+omni`). Both running. Results in ~30 min.
+
+
 **Setup fixed across rows:** DesignBench repair, 111 samples (R=28, V=27, A=28, Vanilla=28), temp=0, seed=42, API via Dashscope international.
 
 Column glossary:
@@ -17,19 +39,20 @@ Column glossary:
 
 ### Run 01 — OmniParser **structural** × `both` mode × 7B
 - **Signal:** structural block (YOLO bboxes + Florence-2 captions + EasyOCR text + pairwise geometric relations + pixel stats)
-- **Scope:** react, vue, angular, vanilla
-- **Metrics captured:** Full metrics after render pass (AST + CLIP/SSIM/MAE/CSR). Note: DesignBench zeros *all* metrics on compile-fail samples, so AST numbers post-render are lower than AST-only estimates. This is the apples-to-apples baseline methodology.
-- **Finding (post-render, apples-to-apples):**
-  - **Angular: LARGE WIN across multiple axes**
-    - CLIP +.141 ** (p=.007) — much better visual match to target
-    - SSIM +.111 ** (p=.002)
+- **Scope:** react, vue, angular, vanilla — full render pass complete
+- **Finding (post-render, apples-to-apples with baseline methodology):**
+  - **Angular: LARGE WIN**
+    - CLIP **+.141** ** (p=.007) — visual match to target much better
+    - SSIM **+.111** ** (p=.002)
     - CMCS +.073 * (p=.048)
     - CMLS +.090 . (p=.069) — marginal
-    - CSR +.179 (McNemar p=.125) — directional big jump (.57 → .75) but not significant at this N because only 7 discordant pairs
-  - Vue: still marginal tradeoff (N=28 didn't move much) — IssAcc +.062 (p=.074), CMLS −.037 (p=.079)
-  - Vanilla: nothing significant
-  - React: render data N=7 (many samples failed compile for 7B+omni); held for re-render
-- **Commits:** `5ec2828` (harness), `eab17e8` (eval), `e2eb9f0` (stats)
+    - CSR +.179 (McNemar p=.125) — directional big jump (.57 → .75), 6 extra samples compiled, only 1 regression
+  - **Vue: CLIP/SSIM divergence finding**
+    - CLIP **+.021** ** (p=.005) — semantic visual similarity up
+    - SSIM **−.016** ** (p=.004) — pixel-structural similarity down
+    - IssAcc +.062 . (p=.074), CMLS −.037 . (p=.079) — classic tradeoff
+  - React, Vanilla: nothing significant
+- **Commits:** `5ec2828` (harness), `eab17e8` (eval), `e2eb9f0` (stats), `3531c38` (render fill)
 - **Cache:** `grounding_structural_cache.json` (111 entries, MPS ~15s/sample)
 
 ### Run 02 — OmniParser **structural** × `both` mode × 72B

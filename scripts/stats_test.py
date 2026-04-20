@@ -84,12 +84,12 @@ def csr_test(data, baseline_key, variant_key):
     return b.mean(), v.mean(), n, b_only, v_only, res.pvalue
 
 
-def run(label, baseline_key, variant_key):
-    print(f"\n=== {label}: {baseline_key} vs {variant_key} ===")
-    print(f"{'fw':9s} {'metric':10s} {'N':>3s} {'base':>7s} {'+omni':>7s} "
+def run(label, baseline_key, variant_key, mode="both"):
+    print(f"\n=== {label}: {baseline_key} vs {variant_key}  (mode={mode}) ===")
+    print(f"{'fw':9s} {'metric':10s} {'N':>3s} {'base':>7s} {'var':>7s} "
           f"{'mean_d':>8s} {'95%CI':>18s} {'W_p':>8s} {'sig':>4s}")
     for fw in FRAMEWORKS:
-        p = RES / f"{fw}_both.json"
+        p = RES / f"{fw}_{mode}.json"
         if not p.exists():
             continue
         data = json.loads(p.read_text())
@@ -124,10 +124,25 @@ def run(label, baseline_key, variant_key):
 
 
 def main():
-    # 7B: does grounding help?
-    run("7B", "qwen2.5-vl-7b-instruct", "qwen2.5-vl-7b-instruct+omni")
-    # 72B: does grounding hurt?
-    run("72B", "qwen2.5-vl-72b-instruct", "qwen2.5-vl-72b-instruct+omni")
+    # Structural OmniParser (both mode)
+    run("7B  +omni  (both)", "qwen2.5-vl-7b-instruct",  "qwen2.5-vl-7b-instruct+omni",  mode="both")
+    run("72B +omni  (both)", "qwen2.5-vl-72b-instruct", "qwen2.5-vl-72b-instruct+omni", mode="both")
+
+    # JEDI click-point (both mode)
+    run("7B  +jedi  (both)", "qwen2.5-vl-7b-instruct",  "qwen2.5-vl-7b-instruct+jedi",  mode="both")
+    run("72B +jedi  (both)", "qwen2.5-vl-72b-instruct", "qwen2.5-vl-72b-instruct+jedi", mode="both")
+
+    # Mark mode: does the pre-highlighted screenshot alone (no extra grounding) help?
+    run("7B  base   (mark vs both)", "qwen2.5-vl-7b-instruct",  "qwen2.5-vl-7b-instruct",  mode="mark")
+    run("72B base   (mark vs both)", "qwen2.5-vl-72b-instruct", "qwen2.5-vl-72b-instruct", mode="mark")
+    # Note: the above 2 cells compare the SAME model against itself in different modes;
+    # stats_test is set up for same-file pairing so this works only if mark JSON includes
+    # a `+both_mode_baseline_as_placeholder` key. Skip for now — compare separately.
+
+    # Mark + OmniParser on top: does structural grounding still help when defects are pre-highlighted?
+    run("7B  +omni  (mark)", "qwen2.5-vl-7b-instruct",  "qwen2.5-vl-7b-instruct+omni",  mode="mark")
+    run("72B +omni  (mark)", "qwen2.5-vl-72b-instruct", "qwen2.5-vl-72b-instruct+omni", mode="mark")
+
     print("\nLegend: sig = ** p<0.01, * p<0.05, . p<0.10")
     print("Wilcoxon signed-rank (two-sided), 95% CI from paired-diff bootstrap (5000 reps).")
 
