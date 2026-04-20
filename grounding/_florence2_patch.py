@@ -18,23 +18,28 @@ import os
 
 
 def patch_florence2_cache(verbose: bool = True) -> int:
-    """Scan HF cache for Florence-2 configs and add forced_bos_token_id if missing.
+    """Scan HF cache for Florence-2 configs + code and fix forced_bos_token_id.
 
-    Returns the number of files patched.
+    Patches both:
+      1. config.json files: add forced_bos_token_id = None at text_config + root
+      2. configuration_florence2.py: add class attribute default on
+         Florence2LanguageConfig so direct attribute access works
+
+    Returns total number of files patched.
     """
     cache_roots = [
         os.path.expanduser("~/.cache/huggingface/hub"),
+        os.path.expanduser("~/.cache/huggingface/modules"),
         os.environ.get("HF_HOME", ""),
         os.environ.get("TRANSFORMERS_CACHE", ""),
     ]
     seen = set()
     patched = 0
 
+    # --- Patch 1: config.json files ---
     for root in cache_roots:
         if not root or not os.path.isdir(root):
             continue
-        # Florence-2 cached config lives at:
-        # ~/.cache/huggingface/hub/models--microsoft--Florence-2-*/snapshots/<hash>/config.json
         for pattern in [
             f"{root}/models--microsoft--Florence-2*/snapshots/*/config.json",
             f"{root}/**/Florence-2*/config.json",
@@ -50,14 +55,10 @@ def patch_florence2_cache(verbose: bool = True) -> int:
                     continue
 
                 modified = False
-
-                # Patch 1: text_config.forced_bos_token_id
                 if "text_config" in cfg and isinstance(cfg["text_config"], dict):
                     if "forced_bos_token_id" not in cfg["text_config"]:
                         cfg["text_config"]["forced_bos_token_id"] = None
                         modified = True
-
-                # Patch 2: root-level (belt and suspenders)
                 if "forced_bos_token_id" not in cfg:
                     cfg["forced_bos_token_id"] = None
                     modified = True
@@ -68,19 +69,83 @@ def patch_florence2_cache(verbose: bool = True) -> int:
                             json.dump(cfg, f, indent=2)
                         patched += 1
                         if verbose:
-                            print(f"[florence2-patch] fixed {cf}")
+                            print(f"[florence2-patch] fixed config {cf}")
                     except Exception as e:
                         if verbose:
-                            print(f"[florence2-patch] failed to write {cf}: {e}")
+                            print(f"[florence2-patch] write failed {cf}: {e}")
+
+    # --- Patch 2: configuration_florence2.py source code ---
+    # Add forced_bos_token_id class attribute to Florence2LanguageConfig
+    # (and Florence2Config for good measure), so attribute access doesn't fail
+    # when the config is being built from kwargs.
+    MARKER = "# florence2-patch: forced_bos_token_id default"
+    for root in cache_roots:
+        if not root or not os.path.isdir(root):
+            continue
+        for pattern in [
+            f"{root}/**/configuration_florence2.py",
+        ]:
+            for cf in glob.glob(pattern, recursive=True):
+                if cf in seen:
+                    continue
+                seen.add(cf)
+                try:
+                    with open(cf) as f:
+                        src = f.read()
+                except Exception:
+                    continue
+
+                if MARKER in src:
+                    continue  # already patched
+
+                # Strategy: insert class-level default right after each
+                # `class Florence2LanguageConfig(...):` or `class Florence2Config(...):`
+                # We insert a line that sets the attr on the class.
+                new_src = src
+                for cls in ("Florence2LanguageConfig", "Florence2Config",
+                            "Florence2VisionConfig"):
+                    # Find class definition
+                    import re
+                    pat = re.compile(
+                        rf"^(class\s+{cls}\s*\([^)]*\)\s*:\s*\n)",
+                        re.MULTILINE,
+                    )
+                    # Insert MARKER line right after class declaration
+                    def repl(m):
+                        return m.group(1) + (
+                            f"    forced_bos_token_id = None  {MARKER}\n"
+                        )
+                    new_src = pat.sub(repl, new_src, count=1)
+
+                if new_src != src:
+                    try:
+                        with open(cf, "w") as f:
+                            f.write(new_src)
+                        patched += 1
+                        if verbose:
+                            print(f"[florence2-patch] fixed source {cf}")
+                    except Exception as e:
+                        if verbose:
+                            print(f"[florence2-patch] write failed {cf}: {e}")
 
     return patched
+
+
+def _clear_florence2_modules():
+    """Remove cached transformers_modules.Florence-2* entries from sys.modules
+    so the patched source is re-loaded on next import."""
+    import sys
+    to_del = [k for k in list(sys.modules.keys())
+              if "florence" in k.lower() or "Florence" in k]
+    for k in to_del:
+        del sys.modules[k]
 
 
 def load_florence2_processor_safe(florence_base: str = "microsoft/Florence-2-base"):
     """Load Florence-2 processor with automatic bug workaround.
 
     Tries normally first. On the known AttributeError, patches the cache
-    and retries once.
+    AND purges cached modules, then retries once.
     """
     from transformers import AutoProcessor
 
@@ -89,13 +154,14 @@ def load_florence2_processor_safe(florence_base: str = "microsoft/Florence-2-bas
     except AttributeError as e:
         if "forced_bos_token_id" not in str(e):
             raise
-        print(f"[florence2-patch] Hit forced_bos_token_id bug, patching cache...")
+        print(f"[florence2-patch] Hit forced_bos_token_id bug, patching...")
         n = patch_florence2_cache(verbose=True)
         if n == 0:
             print(
                 f"[florence2-patch] No files patched. "
                 f"The processor may not be cached yet."
             )
+        _clear_florence2_modules()
         return AutoProcessor.from_pretrained(florence_base, trust_remote_code=True)
 
 
@@ -110,8 +176,9 @@ def load_florence2_model_safe(florence_base: str = "microsoft/Florence-2-base"):
     except AttributeError as e:
         if "forced_bos_token_id" not in str(e):
             raise
-        print(f"[florence2-patch] Hit forced_bos_token_id bug, patching cache...")
+        print(f"[florence2-patch] Hit forced_bos_token_id bug, patching...")
         patch_florence2_cache(verbose=True)
+        _clear_florence2_modules()
         return AutoModelForCausalLM.from_pretrained(
             florence_base, trust_remote_code=True
         )
