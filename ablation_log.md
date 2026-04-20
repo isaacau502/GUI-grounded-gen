@@ -140,9 +140,32 @@ Column glossary:
 - **JEDI per-defect slice:** partial — only vanilla-only data at commit time (render mid-flight). Will refresh.
 - **Commit:** `db1e320`. Output at `results/per_defect.md`. Reproducer: `python scripts/per_defect_analysis.py`.
 
+### Run 06 — JEDI visual-metric render (partial, in progress)
+- **What:** Re-run DesignBench evaluator with full render on all 8 JEDI cells so CLIP/SSIM/MAE/CSR fill in.
+- **Progress (as of 11:33):**
+  - ✅ 72B+jedi vanilla, react (28/28), vue (27/27)
+  - ✅ 7B+jedi vanilla
+  - 🔄 7B+jedi react mid-render (17/28, 11 compiled)
+  - ⏳ 7B+jedi vue, then Angular × 2 (each ~70 min via per-sample `ng serve`)
+- **Partial 72B+jedi numbers landed (raw means, no significance test yet):**
+
+  | Framework | Metric | Baseline | +jedi | Δ (raw) |
+  |-----------|--------|----------|-------|---------|
+  | React | CMLS | .339 | .346 | +.007 |
+  | React | CMCS | .230 | .245 | +.015 |
+  | React | **CodeScore** | **.155** | **.218** | **+.063** |
+  | React | CLIP | .771 | .771 | 0 |
+  | Vue | CMLS | .213 | .207 | −.006 |
+  | Vue | CLIP | .796 | .808 | +.012 |
+  | Vanilla | CMLS | .532 | .524 | −.009 |
+  | Vanilla | CLIP | .791 | .804 | +.013 |
+
+- **Observation:** 72B+jedi React **CodeScore +.063** (raw) stands out — baseline 72B was already strong on React code-quality metric and JEDI pushes it higher without moving CMLS. Other 72B cells look flat-to-slightly-positive on CLIP; AST mostly flat.
+- **Angular (the main cell of interest) still pending.** This is the biggest cell in the study — 7B baseline CSR only 57%, CMLS/CMCS lowest. AST-only already showed JEDI beats OmniParser there (CodeScore +.201 **). Expecting CLIP to track — if it does, gives us a clean double-win story.
+
 ## Queued / pending (this session)
-- Run 06 extension: full render for JEDI cells → CLIP/SSIM/MAE. ~2 hrs (angular is the long tail).
-- Run 08 refresh: re-run per-defect with rendered JEDI data.
+- Run 06 extension completes: angular render (~2 hrs), then full stats refresh + per-defect refresh.
+- Run 08 refresh once JEDI render finishes.
 
 ## Planned / future (not queued this session)
 
