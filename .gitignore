@@ -38,3 +38,4 @@ grounding_*_cache.json
 jedi_cache.json
 grounding_cache.json
 
+.claude/
