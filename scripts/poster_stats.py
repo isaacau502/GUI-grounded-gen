@@ -150,6 +150,14 @@ def fmt_val(v, metric):
     return f"{v:+.3f}"
 
 
+def sig_marker(p):
+    if p < 0.001: return "**"
+    if p < 0.01:  return "**"
+    if p < 0.05:  return "*"
+    if p < 0.10:  return "."
+    return ""
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--alpha", type=float, default=ALPHA)
@@ -160,68 +168,93 @@ def main():
     wins = [r for r in rows if r["p"] < args.alpha and r["goodness"] > 0]
     regr = [r for r in rows if r["p"] < args.alpha and r["goodness"] < 0]
     marginal = [r for r in rows if args.alpha <= r["p"] < 0.10]
+    not_sig = [r for r in rows if r["p"] >= 0.10]
 
     wins.sort(key=lambda r: r["p"])
     regr.sort(key=lambda r: r["p"])
     marginal.sort(key=lambda r: r["p"])
+    not_sig.sort(key=lambda r: (r["comparison"], r["framework"], r["metric"]))
 
     lines = [
-        f"# Poster-ready significance report (α = {args.alpha})",
+        f"# Complete significance report — all results (α = {args.alpha})",
         "",
         "Wilcoxon signed-rank paired, two-sided, for continuous metrics. ",
         "McNemar-style exact binomial on discordant pairs for CSR. ",
-        f"Filter: p < {args.alpha}. Rows sorted by p-value ascending (lowest p first).",
+        "**Every cell from the ablation panel is reported**, grouped by significance level. Use this as the one-stop source for bar-chart/heatmap data including non-significant cells.",
+        "",
+        f"Total cells: {len(rows)}. Significant gains: {len(wins)}. Significant regressions: {len(regr)}. Marginal (0.05 ≤ p < 0.10): {len(marginal)}. Not significant (p ≥ 0.10): {len(not_sig)}.",
+        "",
+        "Sig marker legend: `**` p<0.01, `*` p<0.05, `.` p<0.10.",
         "",
         f"## Significant gains (N={len(wins)})",
         "",
-        "| Rank | Comparison | Framework | Metric | N | Baseline | Variant | Δ | p |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| Rank | Comparison | Framework | Metric | N | Baseline | Variant | Δ | p | sig |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for i, r in enumerate(wins, 1):
         delta_str = fmt_val(r["delta"], r["metric"])
         p_str = "<0.001" if r["p"] < 0.001 else f"{r['p']:.3f}"
         lines.append(
             f"| {i} | {r['comparison']} | {r['framework']} | {r['metric']} | "
-            f"{r['n']} | {r['baseline']:.3f} | {r['variant']:.3f} | {delta_str} | {p_str} |"
+            f"{r['n']} | {r['baseline']:.3f} | {r['variant']:.3f} | {delta_str} | {p_str} | {sig_marker(r['p'])} |"
         )
 
     lines += [
         "",
         f"## Significant regressions (N={len(regr)})",
         "",
-        "| Rank | Comparison | Framework | Metric | N | Baseline | Variant | Δ | p |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| Rank | Comparison | Framework | Metric | N | Baseline | Variant | Δ | p | sig |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for i, r in enumerate(regr, 1):
         delta_str = fmt_val(r["delta"], r["metric"])
         p_str = "<0.001" if r["p"] < 0.001 else f"{r['p']:.3f}"
         lines.append(
             f"| {i} | {r['comparison']} | {r['framework']} | {r['metric']} | "
-            f"{r['n']} | {r['baseline']:.3f} | {r['variant']:.3f} | {delta_str} | {p_str} |"
+            f"{r['n']} | {r['baseline']:.3f} | {r['variant']:.3f} | {delta_str} | {p_str} | {sig_marker(r['p'])} |"
         )
 
     lines += [
         "",
-        f"## Marginal (0.05 ≤ p < 0.10) — for reference (N={len(marginal)})",
+        f"## Marginal (0.05 ≤ p < 0.10, N={len(marginal)})",
         "",
-        "| Comparison | Framework | Metric | N | Δ | p | direction |",
-        "|---|---|---|---|---|---|---|",
+        "| Comparison | Framework | Metric | N | Baseline | Variant | Δ | p | direction |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for r in marginal:
         delta_str = fmt_val(r["delta"], r["metric"])
         direction = "↑ (better)" if r["goodness"] > 0 else "↓ (worse)"
         lines.append(
             f"| {r['comparison']} | {r['framework']} | {r['metric']} | "
-            f"{r['n']} | {delta_str} | {r['p']:.3f} | {direction} |"
+            f"{r['n']} | {r['baseline']:.3f} | {r['variant']:.3f} | {delta_str} | {r['p']:.3f} | {direction} |"
+        )
+
+    lines += [
+        "",
+        f"## Not significant (p ≥ 0.10, N={len(not_sig)})",
+        "",
+        "Included for completeness — every remaining cell from the ablation panel. Direction column shows whether the effect trended in the variant's favor, but none of these cross α=0.10.",
+        "",
+        "| Comparison | Framework | Metric | N | Baseline | Variant | Δ | p | direction |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
+    for r in not_sig:
+        delta_str = fmt_val(r["delta"], r["metric"])
+        direction = "↑" if r["goodness"] > 0 else ("↓" if r["goodness"] < 0 else "—")
+        lines.append(
+            f"| {r['comparison']} | {r['framework']} | {r['metric']} | "
+            f"{r['n']} | {r['baseline']:.3f} | {r['variant']:.3f} | {delta_str} | {r['p']:.3f} | {direction} |"
         )
 
     out_path = REPO / args.output
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text("\n".join(lines) + "\n")
     print(f"Wrote {out_path}")
-    print()
-    for line in lines:
-        print(line)
+    print(f"  Significant gains:     {len(wins)}")
+    print(f"  Significant regressions: {len(regr)}")
+    print(f"  Marginal:              {len(marginal)}")
+    print(f"  Not significant:       {len(not_sig)}")
+    print(f"  TOTAL:                 {len(rows)}")
 
 
 if __name__ == "__main__":
