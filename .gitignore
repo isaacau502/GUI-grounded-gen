@@ -32,3 +32,10 @@ __pycache__/
 .gstack/
 designbench_full.tar
 colab/out/
+omniparser-test/
+omniparser-weights/
+grounding_*_cache.json
+jedi_cache.json
+grounding_cache.json
+results_summary*.md
+

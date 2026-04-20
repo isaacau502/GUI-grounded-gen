@@ -103,6 +103,14 @@ class OmniParserStructural:
         if missing:
             print(f"[structural] warn: {len(missing)} missing keys")
         self.caption_model = self.caption_model.to(self.device)
+        # OmniParser's icon_caption weights are fp16; strict=False load leaves
+        # unmatched params at the model's default fp32. Force one dtype so
+        # conv forward doesn't hit "Input type (float) and bias type (c10::Half)".
+        # CPU/MPS: fp32 (fp16 matmul unsupported). CUDA: fp16 for speed.
+        if self.device == "cuda":
+            self.caption_model = self.caption_model.half()
+        else:
+            self.caption_model = self.caption_model.float()
         self.caption_model.eval()
 
         # OCR
