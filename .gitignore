@@ -37,5 +37,4 @@ omniparser-weights/
 grounding_*_cache.json
 jedi_cache.json
 grounding_cache.json
-results_summary*.md
 
