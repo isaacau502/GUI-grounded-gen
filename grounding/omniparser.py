@@ -239,6 +239,11 @@ class OmniParser:
         import torch
 
         prompt = "<CAPTION>"
+        # Florence-2's vision encoder requires square feature maps — force
+        # crop to 768x768 (its training resolution). Without this:
+        # AssertionError: only support square feature maps for now
+        from PIL import Image as _Image
+        crop = crop.resize((768, 768), _Image.BICUBIC)
         inputs = self.caption_processor(
             text=prompt, images=crop, return_tensors="pt"
         ).to(self.device)

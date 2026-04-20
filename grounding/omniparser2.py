@@ -209,7 +209,10 @@ class OmniParserList:
 
     def _caption_crop(self, crop) -> str:
         import torch
+        from PIL import Image as _Image
         prompt = "<CAPTION>"
+        # Florence-2 requires square feature maps (assertion in _encode_image)
+        crop = crop.resize((768, 768), _Image.BICUBIC)
         inputs = self.caption_processor(
             text=prompt, images=crop, return_tensors="pt"
         ).to(self.device)
