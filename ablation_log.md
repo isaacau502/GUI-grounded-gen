@@ -45,14 +45,30 @@ Column glossary:
 
 ---
 
-## Planned / queued (in this session)
+### Run 05 — CLIP render pass (fill missing visual metrics)
+- **What:** Re-ran DesignBench evaluator with full render on all 8 grounded cells (72B+omni + 7B+omni × 4 fw) so CLIP/SSIM/MAE/CSR metrics exist for every cell.
+- **Result:** Reveal that 72B+omni *wins visually* on Vue (CLIP +.012 **), Angular (CLIP +.009 *, SSIM +.003 *), Vanilla (CLIP +.018 **, SSIM +.019 **, MAE −.337 *). Previously thought to be all noise — visual metrics matter. Added to Run 02 results.
+- **Gotcha:** DesignBench evaluator zeros *all* metrics (including AST) when compile fails. Grounded 7B Angular went from compile-fail-rate 43% to 25% via grounding, so recomputed AST averages differ slightly from AST-only methodology. Apples-to-apples with baseline now.
+- **Commit:** `3531c38`
 
-| # | Signal | Mode | Scope | Status |
-|---|--------|------|-------|--------|
-| 03 | none (baseline) | mark | 7B + 72B × 4 fw | Queued — no existing baseline mark run to compare against |
-| 04 | structural omni | mark | 7B + 72B × 4 fw | Queued — compares to #03 |
-| 05 | none (baseline) | both | (re-eval with render) | Fill missing CLIP for 72B angular/vanilla + all 7B+omni cells |
-| 06 | JEDI click-points | both | 7B + 72B × 4 fw | Blocked on Colab GPU (vllm) |
+### Run 06 — JEDI click-point grounding × `both` mode
+- **Signal:** JEDI-7B-1080p click coordinates per design issue (from each sample's `issue` field). Format injected into prompt: `An automated grounding model identified click targets: "{issue}" → click at (x, y)`.
+- **Cache:** `jedi_cache.json` — 111 samples, 170 total issue-queries, **77 (45%) parsed into valid click coords**. Built on Colab A100 in ~3 min via vllm.
+- **Why 45% parse rate (not higher):** JEDI was trained on OSWorld-G for *interactable-element* clicking (buttons, icons, links), NOT for region-level defect localization. Parse rate varies sharply by defect type:
+  - **crowding 74% / overflow 58%** — defects that usually center on a specific clickable element
+  - **occlusion 40% / disorder 38% / alignment 34% / color-contrast 36% / text-overlap 33%** — defects that are regions or styles, not clickable targets. JEDI often returns empty output or malformed coords.
+- **Handling:** `run_repair_grounded_jedi.py` injects the raw output even when parse fails; the repair model sees "JEDI attempted this issue → raw response" rather than nothing.
+- **Status:** Generation running locally (72B first, then 7B). Eval + stats pending.
+
+### Run 07 — `mark` mode ablation (baseline + grounded)
+- **What:** DesignBench `mark` mode swaps the screenshot for one with defects pre-highlighted in red bboxes. Compare baseline mark vs grounded+mark, both sizes × 4 fw.
+- **Hypothesis:** the red bboxes *are* a grounding signal. If grounded+mark still beats baseline+mark, structural-text grounding adds info beyond just "look here." If not, the gains from Run 02 might just be a "look-at-the-right-place" effect.
+- **Status:** Generation running. Baseline 72B + 7B mark done; grounded 72B mark angular in progress.
+
+## Queued / pending results (current session)
+
+- Run 06 (JEDI): generation running, eval after mark ablation finishes
+- Run 07 (mark): generation at grounded 72B angular. Eval after gen completes. Will add per-row below.
 
 ## Planned / future (not queued this session)
 
