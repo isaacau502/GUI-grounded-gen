@@ -36,20 +36,27 @@ def model_name(size, variant):
 
 
 def sample_paths(framework, size, variant, sample_id):
-    """Absolute paths to the 4 images for a given sample."""
+    """Paths relative to the HTML output (which lives in poster/).
+
+    HTML is at poster/qualitative_picks_*.html, so images reached via ../external/...
+    This works both for file:// direct opens and `python -m http.server` from repo root.
+    """
     ext = {"react": "jsx", "vue": "vue", "angular": "angular", "vanilla": "html"}[framework]
     baseline_model = model_name(size, "baseline")
     variant_model = model_name(size, variant)
-    sample_dir = DATA / framework / str(sample_id)
-    baseline_dir = RESULTS / f"{framework}-{framework}" / baseline_model
-    variant_dir = RESULTS / f"{framework}-{framework}" / variant_model
+    rel_data = f"../external/DesignBench/data/DesignRepair/{framework}/{sample_id}"
+    rel_base = f"../external/DesignBench/results/repair/{framework}-{framework}/{baseline_model}"
+    rel_var = f"../external/DesignBench/results/repair/{framework}-{framework}/{variant_model}"
 
+    # Grounding overlay lives in poster/grounding_overlays/ — relative path from
+    # poster/qualitative_picks_*.html is just grounding_overlays/...
     return {
-        "broken": sample_dir / f"{sample_id}.png",
-        "reference": sample_dir / "repaired.png",
-        "baseline": baseline_dir / f"{framework}_{sample_id}_{baseline_model}_{framework}_both.png",
-        "variant": variant_dir / f"{framework}_{sample_id}_{variant_model}_{framework}_both.png",
-        "config": sample_dir / f"{sample_id}.json",
+        "broken": f"{rel_data}/{sample_id}.png",
+        "reference": f"{rel_data}/repaired.png",
+        "grounding": f"grounding_overlays/{framework}_{variant}_{sample_id}.png",
+        "baseline": f"{rel_base}/{framework}_{sample_id}_{baseline_model}_{framework}_both.png",
+        "variant": f"{rel_var}/{framework}_{sample_id}_{variant_model}_{framework}_both.png",
+        "config": f"{rel_data}/{sample_id}.json",
     }
 
 
@@ -150,6 +157,7 @@ def make_html(framework, size, variant, rows, topk, out_path, rank_by):
 </div>
 <div class="row">
   <div class="col"><img src="{paths['broken']}"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="{paths['grounding']}"/><div class="label">{variant.upper()} OUTPUT (bboxes)</div></div>
   <div class="col"><img src="{paths['reference']}"/><div class="label">REFERENCE TARGET</div></div>
   <div class="col {'missing' if not b_ok else ''}"><img src="{paths['baseline']}"/><div class="label">BASELINE REPAIR</div></div>
   <div class="col {'missing' if not v_ok else ''}"><img src="{paths['variant']}"/><div class="label">+{variant.upper()} REPAIR</div></div>
