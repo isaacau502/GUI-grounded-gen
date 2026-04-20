@@ -82,12 +82,12 @@ class OmniParserList:
             )
 
         print(f"[omniparser2] Loading Florence-2 base from {florence_base} ...")
-        self.caption_processor = AutoProcessor.from_pretrained(
-            florence_base, trust_remote_code=True
+        from grounding._florence2_patch import (
+            load_florence2_processor_safe,
+            load_florence2_model_safe,
         )
-        self.caption_model = AutoModelForCausalLM.from_pretrained(
-            florence_base, trust_remote_code=True
-        )
+        self.caption_processor = load_florence2_processor_safe(florence_base)
+        self.caption_model = load_florence2_model_safe(florence_base)
 
         weights_file = os.path.join(caption_path, "model.safetensors")
         if not os.path.exists(weights_file):

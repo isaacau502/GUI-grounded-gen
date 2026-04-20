@@ -104,13 +104,14 @@ class OmniParser:
         # Load processor + model architecture from Florence-2 base repo.
         # The OmniParser repo is missing tokenizer/processor/remote-code files;
         # Florence-2-base has all of them and the architecture is identical.
+        # Use safe loaders that work around Florence-2's forced_bos_token_id bug.
+        from grounding._florence2_patch import (
+            load_florence2_processor_safe,
+            load_florence2_model_safe,
+        )
         print(f"[omniparser] Loading Florence-2 base from {florence_base} ...")
-        self.caption_processor = AutoProcessor.from_pretrained(
-            florence_base, trust_remote_code=True
-        )
-        self.caption_model = AutoModelForCausalLM.from_pretrained(
-            florence_base, trust_remote_code=True
-        )
+        self.caption_processor = load_florence2_processor_safe(florence_base)
+        self.caption_model = load_florence2_model_safe(florence_base)
 
         # Overwrite base weights with OmniParser's fine-tuned weights.
         weights_file = os.path.join(caption_path, "model.safetensors")

@@ -88,12 +88,12 @@ class OmniParserStructural:
                 f"icon_caption_florence not found at {caption_path}"
             )
         print(f"[structural] Loading Florence-2 base from {florence_base} ...")
-        self.caption_processor = AutoProcessor.from_pretrained(
-            florence_base, trust_remote_code=True
+        from grounding._florence2_patch import (
+            load_florence2_processor_safe,
+            load_florence2_model_safe,
         )
-        self.caption_model = AutoModelForCausalLM.from_pretrained(
-            florence_base, trust_remote_code=True
-        )
+        self.caption_processor = load_florence2_processor_safe(florence_base)
+        self.caption_model = load_florence2_model_safe(florence_base)
         from safetensors.torch import load_file
         weights_file = os.path.join(caption_path, "model.safetensors")
         state_dict = load_file(weights_file)
