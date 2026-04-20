@@ -163,9 +163,46 @@ Column glossary:
 - **Observation:** 72B+jedi React **CodeScore +.063** (raw) stands out — baseline 72B was already strong on React code-quality metric and JEDI pushes it higher without moving CMLS. Other 72B cells look flat-to-slightly-positive on CLIP; AST mostly flat.
 - **Angular (the main cell of interest) still pending.** This is the biggest cell in the study — 7B baseline CSR only 57%, CMLS/CMCS lowest. AST-only already showed JEDI beats OmniParser there (CodeScore +.201 **). Expecting CLIP to track — if it does, gives us a clean double-win story.
 
+### Run 09 — Poster-ready significance filter (α=0.05)
+- **What:** `scripts/poster_stats.py` re-evaluates every (comparison × framework × metric) cell in the existing eval JSONs and emits only p<0.05 results, sorted by p-value. McNemar exact binomial for CSR (paired binary), Wilcoxon signed-rank for continuous. Direction-aware (MAE flipped so lower-is-better counts as gain).
+- **Output:** `results/poster_stats.md`.
+- **Current state (will refresh once JEDI angular render lands):**
+  - **23 significant gains** across the study, top by effect magnitude:
+    1. 7B+omni Angular CLIP +.141 ** (p=.007)
+    2. 7B+omni Angular SSIM +.111 ** (p=.002)
+    3. 7B+omni Angular CMCS +.073 * (p=.048)
+    4. 7B+jedi React MAE −52.59 ** (p<.001) — artifact-suspect, CSR also dropped to .50
+    5. 72B+jedi React IssAcc +.270 ** (leakage — see Run 06 caveat)
+    6. 72B+jedi Vue IssAcc +.441 ** (leakage)
+    7. 72B+omni Vue CLIP +.012 ** (p=.002)
+    8. 72B+omni Vanilla CLIP +.018 **, SSIM +.019 **, MAE −.337 * (all p≤.030)
+    9. 7B+omni Vue CLIP +.021 ** (p=.005)
+    10. 72B+omni Angular CLIP +.009 * / SSIM +.003 *
+  - **10 significant regressions**, top by p-value:
+    1. 7B+jedi React CSR 1.00 → 0.50 **, CLIP −.309 **, SSIM −.304 **
+    2. 7B+jedi React CMLS −.096 ** / CMCS −.084 **
+    3. 7B+omni Vue SSIM −.016 ** (the divergence)
+    4. 7B+omni mark Vanilla CMLS −.144 * / CMCS −.128 *
+  - **10 marginals** (0.05 ≤ p < 0.10) — mostly Vue 7B+omni both tradeoffs (CMLS/CMCS down, IssAcc up) + Angular 7B+omni CMLS at the threshold.
+- **Commit:** `6aa188a`.
+
+### Run 10 — Ranked results overview for poster
+- **What:** `results/results_overview.md`. Tier-ranked interpretation of every significant finding, each with a 1-line theorized mechanism (why it worked / failed).
+- **Tier 1 (poster headline):**
+  1. 7B + omni Angular hero cell
+  2. 72B + omni cross-framework visual gains
+  3. 7B + jedi React cautionary regression
+  4. CLIP > SSIM methodology finding (7B Vue divergence)
+  5. Per-defect alignment N=68 cleanest CLIP-vs-CMLS divergence
+  6. JEDI IssAcc gains (caveated as label leakage)
+- **Tier 2 (body text):** 72B+jedi visual gains (smaller than omni), 72B+jedi React CodeScore +.063 surprise, mark+omni null, mark mode itself is a grounding signal.
+- **Tier 3 (only-if-asked):** JEDI parse-rate defect skew, per-defect clustering for 7B+omni on visually-complex defects.
+- **Null results documented separately** (not "failures," just where grounding didn't move the needle).
+- **Commit:** `6aa188a`.
+
 ## Queued / pending (this session)
-- Run 06 extension completes: angular render (~2 hrs), then full stats refresh + per-defect refresh.
-- Run 08 refresh once JEDI render finishes.
+- Run 06 extension completes: angular render for 7B+jedi and 72B+jedi (~2 hrs total).
+  - When done: refresh Run 09 poster_stats, Run 10 overview, Run 08 per-defect, and this log.
 
 ## Planned / future (not queued this session)
 
