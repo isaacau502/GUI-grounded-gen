@@ -73,7 +73,7 @@ def parse_args():
     parser.add_argument("--frameworks", nargs="+", default=["react", "vue", "angular", "vanilla"],
                         choices=["react", "vue", "angular", "vanilla"],
                         help="Frameworks to run (default: all)")
-    parser.add_argument("--mode", default="both", choices=["both", "code", "image"],
+    parser.add_argument("--mode", default="both", choices=["both", "code", "image", "mark"],
                         help="Input mode (default: both)")
     parser.add_argument("--samples", type=int, default=2,
                         help="Number of samples per framework (default: 2)")
@@ -200,7 +200,7 @@ def run_generation(args):
         "angular": Framework.ANGULAR,
         "vanilla": Framework.VANILLA,
     }
-    mode_enum = {"both": Mode.BOTH, "code": Mode.CODE, "image": Mode.IMAGE}
+    mode_enum = {"both": Mode.BOTH, "code": Mode.CODE, "image": Mode.IMAGE, "mark": Mode.MARK}
 
     for fw_name in args.frameworks:
         fw = fw_enum[fw_name]

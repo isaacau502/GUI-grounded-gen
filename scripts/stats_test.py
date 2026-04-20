@@ -21,6 +21,9 @@ METRICS = [
     ("ast_code_content_weighted_score", "CMCS"),
     ("issue accuracy", "IssAcc"),
     ("code_score", "CodeScore"),
+    ("clip_similarity", "CLIP"),
+    ("structure_similarity", "SSIM"),
+    ("MAE", "MAE"),
 ]
 
 FRAMEWORKS = ["react", "vue", "angular", "vanilla"]
@@ -59,6 +62,28 @@ def sig_star(p):
     return " "
 
 
+def csr_test(data, baseline_key, variant_key):
+    """McNemar-style test on per-sample compile_success (binary).
+
+    Returns (base_csr, var_csr, n, b_not_v, v_not_b, two_sided_p)."""
+    from scipy.stats import binomtest
+    b_d = data.get(baseline_key, {})
+    v_d = data.get(variant_key, {})
+    common = sorted(set(b_d.keys()) & set(v_d.keys()), key=int)
+    b = np.array([1 if b_d[k].get("compile_success") else 0 for k in common])
+    v = np.array([1 if v_d[k].get("compile_success") else 0 for k in common])
+    n = len(b)
+    # Discordant pairs
+    b_only = int(((b == 1) & (v == 0)).sum())  # baseline compiled, variant didn't
+    v_only = int(((b == 0) & (v == 1)).sum())  # variant compiled, baseline didn't
+    discordant = b_only + v_only
+    if discordant == 0:
+        return b.mean(), v.mean(), n, b_only, v_only, 1.0
+    # Exact binomial test on v_only out of discordant (null p=0.5)
+    res = binomtest(v_only, discordant, 0.5, alternative="two-sided")
+    return b.mean(), v.mean(), n, b_only, v_only, res.pvalue
+
+
 def run(label, baseline_key, variant_key):
     print(f"\n=== {label}: {baseline_key} vs {variant_key} ===")
     print(f"{'fw':9s} {'metric':10s} {'N':>3s} {'base':>7s} {'+omni':>7s} "
@@ -72,6 +97,9 @@ def run(label, baseline_key, variant_key):
             b, v, keys = paired_samples(data, baseline_key, variant_key, mkey)
             if len(b) == 0:
                 continue
+            # Skip if all values are 0 (metric not computed, e.g. no render)
+            if b.sum() == 0 and v.sum() == 0:
+                continue
             mean_b, mean_v = b.mean(), v.mean()
             md, lo, hi = bootstrap_mean_diff_ci(b, v)
             try:
@@ -82,6 +110,17 @@ def run(label, baseline_key, variant_key):
                   f"{mean_b:>7.3f} {mean_v:>7.3f} "
                   f"{md:>+8.3f} [{lo:>+.3f},{hi:>+.3f}] "
                   f"{pretty_p(pval):>8s} {sig_star(pval):>4s}")
+
+        # CSR via McNemar-style exact binomial on discordant pairs
+        try:
+            base_csr, var_csr, n, bo, vo, pval = csr_test(data, baseline_key, variant_key)
+            print(f"{fw:9s} {'CSR':10s} {n:>3d} "
+                  f"{base_csr:>7.3f} {var_csr:>7.3f} "
+                  f"{var_csr-base_csr:>+8.3f} "
+                  f"  [B_only={bo}, V_only={vo}] "
+                  f"{pretty_p(pval):>8s} {sig_star(pval):>4s}")
+        except Exception as e:
+            print(f"{fw:9s} CSR test failed: {e}")
 
 
 def main():

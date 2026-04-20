@@ -125,7 +125,7 @@ def main():
     ap.add_argument("--model", default="qwen2.5-vl-7b-instruct")
     ap.add_argument("--frameworks", nargs="+", default=["react", "vue", "angular", "vanilla"],
                     choices=["react", "vue", "angular", "vanilla"])
-    ap.add_argument("--mode", default="both", choices=["both", "code", "image"])
+    ap.add_argument("--mode", default="both", choices=["both", "code", "image", "mark"])
     ap.add_argument("--samples", type=int, default=2)
     ap.add_argument("--full", action="store_true")
     ap.add_argument("--workers", type=int, default=5)
@@ -161,7 +161,7 @@ def main():
         "angular": Framework.ANGULAR,
         "vanilla": Framework.VANILLA,
     }
-    mode_enum = {"both": Mode.BOTH, "code": Mode.CODE, "image": Mode.IMAGE}
+    mode_enum = {"both": Mode.BOTH, "code": Mode.CODE, "image": Mode.IMAGE, "mark": Mode.MARK}
     counts = {"react": 28, "vue": 27, "angular": 28, "vanilla": 28}
 
     for fw_name in args.frameworks:

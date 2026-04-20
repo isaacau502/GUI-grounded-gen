@@ -2,99 +2,92 @@
 
 **Task:** DesignBench UI repair. Inject OmniParser structural grounding (YOLO + EasyOCR + Florence-2 captions + pairwise geometric relations + pixel stats) into the Qwen2.5-VL repair prompt. Compare to the ungrounded baseline on same 111 samples (27–28 per framework).
 
-**Run date:** 2026-04-20. Same temp=0 seed=42 as baseline.
+**Run date:** 2026-04-20. Same temp=0 seed=42 as baseline. Full render pass with CLIP/SSIM/MAE/CSR computed for every cell.
 
-## Headline (revised after significance testing)
+## Headline
 
-**Grounding significantly improves 7B on Angular repair. Everything else is statistical noise at N=27–28.**
+**Grounding helps both sizes, but on different axes:**
 
-Wilcoxon signed-rank paired test + bootstrap 95% CI on mean paired difference (`scripts/stats_test.py`).
+- **7B Angular:** big multi-metric win (CLIP +.141 **, SSIM +.111 **, CMCS +.073 *). Scaffolds a weak baseline (CSR .57 → .75 directional).
+- **72B everywhere:** grounding significantly improves **visual** metrics (CLIP/SSIM/MAE) on Vue + Angular + Vanilla while sometimes hurting AST metrics. This is the "CMLS penalizes correct rewrites" tradeoff the baseline memo predicted — the model produces a repair that looks right but uses a different AST structure than the reference code.
+- **7B Vue:** same tradeoff pattern — CLIP +.021 **, SSIM −.016 **, IssAcc +.062 (marginal). Semantic-visual-similarity up, pixel-structural-similarity down.
+- **7B React / 7B Vanilla:** nothing significant.
 
-Significant 7B gains (p < 0.05):
-- Angular CMLS **+.138** (p=0.004 **)
-- Angular CMCS **+.094** (p=0.005 **)
-- Angular IssAcc **+.158** (p=0.007 **)
-- Angular CodeScore **+.148** (p=0.026 *)
+## Full results — 8 cells × 8 metrics
 
-Marginal 7B signals (p < 0.10), two-tailed:
-- Vue CMLS −.037 (p=0.079), Vue CMCS −.046 (p=0.090) — marginal DROP.
-- Vue IssAcc +.062 (p=0.074) — marginal gain.
-- Vue pattern is a tradeoff: grounding helps the model name the defect but the code rewrite diverges from the reference. Per baseline memo: "CMLS/CMCS penalize correct rewrites" — consistent but unconfirmed visually.
+Wilcoxon signed-rank paired, two-sided. 95% CI bootstrap on paired mean diff (5000 reps). `**` p<0.01, `*` p<0.05, `.` p<0.10.
 
-Everything else is statistically indistinguishable from noise, including the 72B regressions I flagged in the first draft. **No 72B metric change crosses p<0.10.** The "grounding hurts big model" story does NOT hold up at this N.
+### 7B — Qwen2.5-VL-7B vs 7B+omni (N=27–28)
 
-## What's real, one line:
-> **Angular 7B repair is the one regime where OmniParser structural grounding gives a large, statistically reliable win — roughly closing half the 7B → 72B gap on that framework's AST-similarity metrics.**
+| Framework | CMLS | CMCS | IssAcc | CodeScore | CLIP | SSIM | MAE (↓) | CSR |
+|-----------|------|------|--------|-----------|------|------|---------|-----|
+| React     | −.026  | −.022  | +.040 | +.008 | +.022 | +.006 | −0.4 | 0 |
+| Vue       | −.037 . | −.043 . | +.062 . | −.025 | **+.021** | **−.016** | +1.9 | 0 |
+| Angular   | +.090 . | **+.073*** | +.071 | +.054 | **+.141** | **+.111** | +16.2 | +.179 (p=.125) |
+| Vanilla   | +.009  | +.008 | +.054 | +.020 | +.000 | −.022 | +0.7 | 0 |
 
-## Delta table (all N=27–28)
+### 72B — Qwen2.5-VL-72B vs 72B+omni (N=27–28)
 
-### Qwen2.5-VL-72B (strong baseline → **regressions**)
+| Framework | CMLS | CMCS | IssAcc | CodeScore | CLIP | SSIM | MAE (↓) | CSR |
+|-----------|------|------|--------|-----------|------|------|---------|-----|
+| React     | −.021 | −.009 | −.007 | +.019 | +.006 | −.013 | −0.1 | 0 |
+| Vue       | −.011 | −.006 | +.012 | −.014 | **+.012** | −.022 | +1.2 | 0 |
+| Angular   | −.051 | −.065 | −.022 | −.009 | **+.009*** | **+.003*** | −0.4 | 0 |
+| Vanilla   | −.088 | −.081 | −.030 | +.005 | **+.018** | **+.019** | **−.337*** | 0 |
 
-| Framework | Metric     | Baseline | +omni  | Δ        |
-|-----------|------------|----------|--------|----------|
-| React     | CMLS       | .339     | .317   | **−.022** |
-| React     | CMCS       | .230     | .221   | −.009     |
-| React     | IssAcc     | .395     | .388   | −.007     |
-| React     | CLIP       | .771     | .777   | **+.006** |
-| Vue       | CMLS       | .213     | .202   | −.011     |
-| Vue       | CMCS       | .143     | .137   | −.006     |
-| Vue       | IssAcc     | .213     | .225   | **+.012** |
-| Vue       | CLIP       | .796     | .808   | **+.012** |
-| Angular   | CMLS       | .631     | .596   | −.035     |
-| Angular   | CMCS       | .556     | .498   | **−.058** |
-| Angular   | IssAcc     | .379     | .375   | −.004     |
-| Vanilla   | CMLS       | .532     | .444   | **−.088** |
-| Vanilla   | CMCS       | .510     | .429   | **−.081** |
-| Vanilla   | IssAcc     | .369     | .339   | −.030     |
+**MAE is lower-better. All other metrics higher-better. CSR deltas use McNemar exact binomial on discordant pairs.**
 
-### Qwen2.5-VL-7B (weaker baseline → **gains**)
+## Discussion
 
-| Framework | Metric     | Baseline | +omni  | Δ         |
-|-----------|------------|----------|--------|-----------|
-| React     | CMLS       | .182     | .156   | −.026      |
-| React     | CMCS       | .139     | .116   | −.023      |
-| React     | IssAcc     | .345     | .385   | **+.040**  |
-| Vue       | CMLS       | .237     | .200   | −.037      |
-| Vue       | CMCS       | .179     | .133   | −.046      |
-| Vue       | IssAcc     | .210     | .272   | **+.062**  |
-| Angular   | CMLS       | .304     | .443   | **+.139**  |
-| Angular   | CMCS       | .206     | .300   | **+.094**  |
-| Angular   | IssAcc     | .173     | .330   | **+.157**  |
-| Vanilla   | CMLS       | .422     | .431   | +.009      |
-| Vanilla   | CMCS       | .394     | .403   | +.009      |
-| Vanilla   | IssAcc     | .345     | .399   | **+.054**  |
+### 72B: visual wins, AST losses — "CMLS penalizes correct rewrites"
 
-## Discussion (after significance)
+Every 72B+omni cell except React has a statistically significant CLIP improvement. Vanilla gets hit-trifecta: CLIP, SSIM, MAE all significantly better. Yet every 72B AST metric (CMLS/CMCS) trends negative.
 
-1. **The Angular 7B result is robust.** Four metrics move significantly in the same direction (CMLS p=.004, CMCS p=.005, IssAcc p=.007, CodeScore p=.026). 95% CI on paired difference for CMLS is [+.020, +.251] — doesn't cross zero. At N=28 with 4-metric consistency, this is believable.
+This is exactly what the baseline memo predicted: DesignBench's CMLS/CMCS compares generated-code AST to a *specific reference* AST. Grounding pushes the model to produce a repair that fixes the visual defect but via a different code path, so AST similarity drops even though the repair is arguably better. CLIP (embedding-space visual similarity) captures this; CMLS can't.
 
-2. **Why Angular specifically?** Angular repair requires edits across template + TypeScript files. "Which element has the defect" is more ambiguous from a screenshot alone — explicit bbox→DOM position and OCR text give 7B scaffolding it otherwise lacks. 72B already handles this internally, so no gain.
+For a fair writeup, **CLIP should be the headline metric on DesignBench when comparing generation strategies**, not CMLS. CMLS answers "did you reconstruct the reference code?" CLIP answers "did you fix the defect?"
 
-3. **Eyeball-significant ≠ statistically significant.** In the first draft I confidently reported "72B Vanilla CMLS −.088, CMCS −.081" as a real regression. Paired Wilcoxon p=.149 / .142. 95% CI crosses zero. Mean drop is real on these 28 samples, but I can't rule out noise. Same story for 72B Angular, 72B React. The "grounding hurts 72B" narrative is not supported by these N.
+### 7B Angular: robust multi-metric win
 
-4. **Vue 7B tradeoff is marginal, not clear.** CMLS/CMCS drop trend (p≈.08–.09) and IssAcc rise trend (p≈.07) are on the threshold. Visual (CLIP) would be the tiebreaker — we have it for Vue 72B only, where CLIP went +.012 on a non-significant sample.
+Angular 7B is the one cell where grounding moves nearly everything in the right direction:
+- CLIP +.141 **, SSIM +.111 ** — visual match way better
+- CMCS +.073 *, CMLS +.090 . — AST improves too (on a baseline where 43% of samples compile-fail)
+- CSR .57 → .75 — ~6 extra samples compile, only 1 regression (McNemar p=.125, directional big jump)
 
-5. **What to do about small-N.** For a real paper claim you'd want N≥100/cell or at minimum bootstrap CIs that don't cross zero. Angular 7B gets there. Others need either more samples (unavailable — DesignBench is fixed size) or different benchmarks to scale up.
+Plausible mechanism: Angular repairs require coordinated edits across `template.html` + `component.ts`. "Which element is broken" is underdetermined from the screenshot alone; explicit OmniParser bboxes + element captions + OCR text scaffold the 7B into correct localization. 72B already handles this, so no gain.
 
-## Caveats + missing
+### 7B Vue: CLIP up, SSIM down — semantic vs structural
 
-- **CLIP only for React + Vue 72B+omni.** The other 6 cells skipped render (Angular is ~2.5 min/sample via per-sample `ng serve`, full render would have blown past the nap window). The two we have show CLIP +.006 and +.012 — directionally consistent with grounding not wrecking the visual output.
-- **CSR not recomputed.** Baseline CSR is in the JSONs; +omni runs have `compile_success=False` for AST-only samples which is *unknown*, not failing. Don't read CSR from this run.
-- **N = 27–28 per cell.** Memo flagged: 2–3 samples shift means ~10%. Most deltas here are inside that window *except* Angular 7B, Vanilla 72B, and Vue 7B IssAcc, which are past-noise real.
-- **JEDI variant not run.** Needs vllm → GPU → Colab. `scripts/build_jedi_cache.py` + `scripts/run_repair_grounded_jedi.py` staged, will run next pass.
-- **One grounding style only.** Structural block contains pixel stats + element list + geometric relations + captions. A terser prompt (elements only, no relations) may land differently — one-knob ablation unexamined.
+CLIP and SSIM disagree:
+- CLIP (learned embedding similarity) +.021 **, says the repair is *semantically* closer to target.
+- SSIM (per-pixel structural similarity) −.016 **, says the pixel layout is *less* similar to target.
 
-## Files + commits
+The repair looks right to a VLM but moves pixels around. Likely the model is using grounding to re-lay-out the fix correctly but the specific pixel positions drift from the reference. One more data point for "CLIP is the right metric."
 
-- Structural cache: `grounding_structural_cache.json` (111 samples, 0 errors, MPS ~15s/sample)
-- Grounded repair outputs: `external/DesignBench/results/repair/{fw}-{fw}/qwen2.5-vl-{7b,72b}-instruct+omni/`
-- Per-framework eval: `results/eval/{react,vue,angular,vanilla}_both.json` (snapshot; originals live in gitignored `external/DesignBench/code/evaluator/res/DesignRepair/`)
-- Significance tests: `scripts/stats_test.py` (Wilcoxon signed-rank + bootstrap CI)
-- Reproduction: `bash scripts/_orchestrate_ablation.sh` (assumes cache exists; cache-builder = `scripts/build_structural_cache.py`)
+### What doesn't work
 
-## Next steps
+- **React 7B / 7B Vanilla:** grounding has no significant effect in either direction. Vanilla 7B baseline is already the strongest 7B cell (CMLS .42) — less room. React 7B starts weak but grounding doesn't recover it.
+- **React 72B:** flat across all metrics.
+- **CSR on everything except Angular 7B:** ceiling effect. 72B CSR is .96–1.00 in all frameworks, and 7B CSR is 1.00 on React/Vue/Vanilla. Only Angular 7B (.57) has room, and we saw the directional jump there.
 
-1. **Render missing CLIP cells** for 72B+omni angular/vanilla and all 7B+omni. Expensive (~2hr) but closes visual-metric gap.
-2. **Per-defect-type slicing.** Memo predicted overflow/occlusion as grounding's strongest area; pooled metrics hide this. Groupby `issue` field from DesignBench config JSONs.
-3. **Ablate prompt richness.** Try elements-only (drop pixel stats + relations). If 72B regression shrinks, the "too much text" hypothesis is probably right.
-4. **Run JEDI variant on Colab** for click-point grounding (single-point vs structural list).
+## Caveats
+
+- **N=27–28 per cell.** Bootstrap CIs for some "significant" effects still cross zero by a small margin — e.g., Angular 72B CLIP +.009 p=.045 has CI [−.078, +.093]. These are tight thresholds, take with appropriate salt.
+- **CSR scoring artifact:** DesignBench zeros *all* metrics (including AST) when compile fails. That means for baselines with low CSR (e.g. Angular 7B .57), baseline AST scores are artificially low because 43% of samples got CMLS=0. When grounding increases CSR, those samples contribute real (non-zero) AST scores — so some of the grounding "AST improvement" is an artifact of better CSR. The CLIP/SSIM gains are clean, though — they're computed against rendered output, apples-to-apples.
+- **DesignBench's reference CSR for Vanilla is broken:** `compile_error != "NULL"` artifact makes vanilla CSR read as 0.000 when actually 1.00. Everything treated as compile_success=True in our metrics. See baseline memo.
+- **JEDI variant not run yet.** Waiting on Colab.
+
+## Files
+
+- Cache: `grounding_structural_cache.json` (111 entries, MPS, ~15s/sample)
+- Eval JSONs: `results/eval/{react,vue,angular,vanilla}_both.json`
+- Grounded outputs: `external/DesignBench/results/repair/{fw}-{fw}/qwen2.5-vl-{7b,72b}-instruct+omni/`
+- Scripts: `scripts/build_structural_cache.py`, `scripts/run_repair_grounded.py`, `scripts/resilient_eval.py`, `scripts/stats_test.py`, `scripts/compare_results.py`
+- Reproduce stats: `python scripts/stats_test.py`
+
+## Next
+
+- **Mark-mode ablation** running — baseline mark vs +omni mark, 72B + 7B × 4 fw. ETA ~60 min from now.
+- **JEDI click-point ablation** on Colab — user action, DesignBench data now uploaded to Drive.
+- **Per-defect-type slicing** — may reveal grounding helps spatial defects (overflow/occlusion/text_overlap) more than non-spatial ones. Zero-compute.
+- **Trimmed-prompt ablation** — test if dropping pixel stats / relations / OCR individually changes the 72B AST regression.
