@@ -74,59 +74,140 @@ def patch_florence2_cache(verbose: bool = True) -> int:
                         if verbose:
                             print(f"[florence2-patch] write failed {cf}: {e}")
 
-    # --- Patch 2: configuration_florence2.py source code ---
-    # Add forced_bos_token_id class attribute to Florence2LanguageConfig
-    # (and Florence2Config for good measure), so attribute access doesn't fail
-    # when the config is being built from kwargs.
-    MARKER = "# florence2-patch: forced_bos_token_id default"
+    # --- Patch 2: configuration_florence2.py — add class-level default
+    # for forced_bos_token_id so direct self.forced_bos_token_id access works
+    # in newer transformers where PretrainedConfig no longer sets it.
+    MARKER_CFG = "# florence2-patch: forced_bos_token_id default"
     for root in cache_roots:
         if not root or not os.path.isdir(root):
             continue
-        for pattern in [
-            f"{root}/**/configuration_florence2.py",
-        ]:
-            for cf in glob.glob(pattern, recursive=True):
-                if cf in seen:
-                    continue
-                seen.add(cf)
-                try:
-                    with open(cf) as f:
-                        src = f.read()
-                except Exception:
-                    continue
-
-                if MARKER in src:
-                    continue  # already patched
-
-                # Strategy: insert class-level default right after each
-                # `class Florence2LanguageConfig(...):` or `class Florence2Config(...):`
-                # We insert a line that sets the attr on the class.
-                new_src = src
-                for cls in ("Florence2LanguageConfig", "Florence2Config",
-                            "Florence2VisionConfig"):
-                    # Find class definition
-                    import re
-                    pat = re.compile(
-                        rf"^(class\s+{cls}\s*\([^)]*\)\s*:\s*\n)",
-                        re.MULTILINE,
+        for cf in glob.glob(f"{root}/**/configuration_florence2.py", recursive=True):
+            if cf in seen:
+                continue
+            seen.add(cf)
+            try:
+                with open(cf) as f:
+                    src = f.read()
+            except Exception:
+                continue
+            if MARKER_CFG in src:
+                continue
+            new_src = src
+            import re
+            for cls in ("Florence2LanguageConfig", "Florence2Config",
+                        "Florence2VisionConfig"):
+                pat = re.compile(
+                    rf"^(class\s+{cls}\s*\([^)]*\)\s*:\s*\n)",
+                    re.MULTILINE,
+                )
+                def repl(m):
+                    return m.group(1) + (
+                        f"    forced_bos_token_id = None  {MARKER_CFG}\n"
                     )
-                    # Insert MARKER line right after class declaration
-                    def repl(m):
-                        return m.group(1) + (
-                            f"    forced_bos_token_id = None  {MARKER}\n"
-                        )
-                    new_src = pat.sub(repl, new_src, count=1)
+                new_src = pat.sub(repl, new_src, count=1)
+            if new_src != src:
+                try:
+                    with open(cf, "w") as f:
+                        f.write(new_src)
+                    patched += 1
+                    if verbose:
+                        print(f"[florence2-patch] fixed config-source {cf}")
+                except Exception as e:
+                    if verbose:
+                        print(f"[florence2-patch] write failed {cf}: {e}")
 
-                if new_src != src:
-                    try:
-                        with open(cf, "w") as f:
-                            f.write(new_src)
-                        patched += 1
-                        if verbose:
-                            print(f"[florence2-patch] fixed source {cf}")
-                    except Exception as e:
-                        if verbose:
-                            print(f"[florence2-patch] write failed {cf}: {e}")
+    # --- Patch 2b: modeling_florence2.py — add _supports_sdpa + related
+    # class attributes that newer transformers expects on PreTrainedModel
+    # subclasses but older Florence-2 remote code doesn't set.
+    MARKER_MODEL = "# florence2-patch: modern transformers attrs"
+    for root in cache_roots:
+        if not root or not os.path.isdir(root):
+            continue
+        for cf in glob.glob(f"{root}/**/modeling_florence2.py", recursive=True):
+            if cf in seen:
+                continue
+            seen.add(cf)
+            try:
+                with open(cf) as f:
+                    src = f.read()
+            except Exception:
+                continue
+            if MARKER_MODEL in src:
+                continue
+            new_src = src
+            import re
+            # Patch every Florence2*PreTrainedModel / ForConditionalGeneration
+            # class with safe defaults for SDPA/flash attn attributes.
+            for cls in (
+                "Florence2PreTrainedModel",
+                "Florence2ForConditionalGeneration",
+                "Florence2LanguagePreTrainedModel",
+                "Florence2LanguageForConditionalGeneration",
+                "Florence2VisionModel",
+            ):
+                pat = re.compile(
+                    rf"^(class\s+{cls}\s*\([^)]*\)\s*:\s*\n)",
+                    re.MULTILINE,
+                )
+                def repl(m):
+                    return m.group(1) + (
+                        f"    _supports_sdpa = True  {MARKER_MODEL}\n"
+                        f"    _supports_flash_attn_2 = False  {MARKER_MODEL}\n"
+                        f"    _supports_cache_class = False  {MARKER_MODEL}\n"
+                    )
+                new_src = pat.sub(repl, new_src, count=1)
+            if new_src != src:
+                try:
+                    with open(cf, "w") as f:
+                        f.write(new_src)
+                    patched += 1
+                    if verbose:
+                        print(f"[florence2-patch] fixed modeling-source {cf}")
+                except Exception as e:
+                    if verbose:
+                        print(f"[florence2-patch] write failed {cf}: {e}")
+
+    # --- Patch 3: processing_florence2.py — replace deprecated
+    # `tokenizer.additional_special_tokens` with getattr fallback that works
+    # on modern transformers (where the attribute was removed from tokenizer).
+    MARKER_PROC = "# florence2-patch: additional_special_tokens fallback"
+    for root in cache_roots:
+        if not root or not os.path.isdir(root):
+            continue
+        for cf in glob.glob(f"{root}/**/processing_florence2.py", recursive=True):
+            if cf in seen:
+                continue
+            seen.add(cf)
+            try:
+                with open(cf) as f:
+                    src = f.read()
+            except Exception:
+                continue
+            if MARKER_PROC in src:
+                continue
+
+            # Replace with an expression that works on both old and new
+            # transformers. Keep it a single expression — no multi-line
+            # comments — so surrounding `+ \` line-continuations stay intact.
+            # Marker added via trailing `# ...` on same line.
+            new_src = src.replace(
+                "tokenizer.additional_special_tokens",
+                f"(getattr(tokenizer, 'additional_special_tokens', None) or [])",
+            )
+            # Also track that we've patched this file
+            if new_src != src:
+                new_src = f"{MARKER_PROC}\n" + new_src
+
+            if new_src != src:
+                try:
+                    with open(cf, "w") as f:
+                        f.write(new_src)
+                    patched += 1
+                    if verbose:
+                        print(f"[florence2-patch] fixed processing-source {cf}")
+                except Exception as e:
+                    if verbose:
+                        print(f"[florence2-patch] write failed {cf}: {e}")
 
     return patched
 
@@ -141,44 +222,57 @@ def _clear_florence2_modules():
         del sys.modules[k]
 
 
+_KNOWN_ATTRS = (
+    "forced_bos_token_id",
+    "additional_special_tokens",
+    "_supports_sdpa",
+    "_supports_flash_attn_2",
+    "_supports_cache_class",
+)
+
+
+def _is_known_attr_error(e: Exception) -> bool:
+    msg = str(e)
+    return isinstance(e, AttributeError) and any(k in msg for k in _KNOWN_ATTRS)
+
+
 def load_florence2_processor_safe(florence_base: str = "microsoft/Florence-2-base"):
     """Load Florence-2 processor with automatic bug workaround.
 
-    Tries normally first. On the known AttributeError, patches the cache
-    AND purges cached modules, then retries once.
+    Florence-2's remote code (`trust_remote_code=True`) was written against
+    old transformers APIs and breaks on modern versions. We patch the cached
+    source files on demand and retry.
     """
     from transformers import AutoProcessor
 
-    try:
-        return AutoProcessor.from_pretrained(florence_base, trust_remote_code=True)
-    except AttributeError as e:
-        if "forced_bos_token_id" not in str(e):
-            raise
-        print(f"[florence2-patch] Hit forced_bos_token_id bug, patching...")
-        n = patch_florence2_cache(verbose=True)
-        if n == 0:
-            print(
-                f"[florence2-patch] No files patched. "
-                f"The processor may not be cached yet."
-            )
-        _clear_florence2_modules()
-        return AutoProcessor.from_pretrained(florence_base, trust_remote_code=True)
+    for attempt in range(3):  # up to 3 retries; different bugs may chain
+        try:
+            return AutoProcessor.from_pretrained(florence_base, trust_remote_code=True)
+        except Exception as e:
+            if not _is_known_attr_error(e):
+                raise
+            print(f"[florence2-patch] attempt {attempt+1}: hit '{e}', patching...")
+            patch_florence2_cache(verbose=True)
+            _clear_florence2_modules()
+    raise RuntimeError(
+        "Failed to load Florence-2 processor after 3 patch attempts. "
+        "Transformers version may be too new for Florence-2's remote code."
+    )
 
 
 def load_florence2_model_safe(florence_base: str = "microsoft/Florence-2-base"):
     """Load Florence-2 model with the same bug workaround."""
     from transformers import AutoModelForCausalLM
 
-    try:
-        return AutoModelForCausalLM.from_pretrained(
-            florence_base, trust_remote_code=True
-        )
-    except AttributeError as e:
-        if "forced_bos_token_id" not in str(e):
-            raise
-        print(f"[florence2-patch] Hit forced_bos_token_id bug, patching...")
-        patch_florence2_cache(verbose=True)
-        _clear_florence2_modules()
-        return AutoModelForCausalLM.from_pretrained(
-            florence_base, trust_remote_code=True
-        )
+    for attempt in range(3):
+        try:
+            return AutoModelForCausalLM.from_pretrained(
+                florence_base, trust_remote_code=True
+            )
+        except Exception as e:
+            if not _is_known_attr_error(e):
+                raise
+            print(f"[florence2-patch] model attempt {attempt+1}: '{e}', patching...")
+            patch_florence2_cache(verbose=True)
+            _clear_florence2_modules()
+    raise RuntimeError("Failed to load Florence-2 model after 3 patch attempts.")
