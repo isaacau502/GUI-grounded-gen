@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Repurposing GUI Grounding for Automated UI Code Repair</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --red:#C41230;
+    --red-deep:#8C0A22;
+    --red-wash:#FBE8EC;
+    --ink:#111;
+    --g900:#1a1a1a;
+    --g700:#4a4a4a;
+    --g500:#7a7a7a;
+    --g400:#a6a6a6;
+    --g300:#d0d0d0;
+    --g200:#e8e8e8;
+    --g100:#f2f2f2;
+    --g050:#f9f9f9;
+    --W:4800px;
+    --H:3600px;
+    --pad:120px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#1a1a1a;font-family:"Inter",system-ui,sans-serif;color:var(--ink);}
+  .fit{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .scaler{width:var(--W);height:var(--H);transform-origin:center;background:#fff;box-shadow:0 0 80px rgba(0,0,0,.5)}
+  .poster{
+    width:100%;height:100%;
+    padding:var(--pad);
+    display:grid;
+    grid-template-columns:repeat(12,1fr);
+    grid-auto-rows:min-content;
+    column-gap:80px;
+    row-gap:80px;
+    background:#fff;
+    position:relative;
+  }
+  code, .mono { font-family:"JetBrains Mono",monospace; font-weight:500; }
+
+  /* ============= TITLE BAND ============= */
+  .titleband{
+    grid-column:1/-1;
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    gap:60px;
+    align-items:end;
+    padding-bottom:40px;
+    border-bottom:3px solid var(--ink);
+  }
+  .eyebrow{
+    font-family:"JetBrains Mono",monospace;
+    font-size:28px;
+    letter-spacing:.32em;
+    text-transform:uppercase;
+    color:var(--red);
+    font-weight:600;
+    margin-bottom:22px;
+    display:block;
+  }
+  .title{
+    font-family:"Fraunces",Georgia,serif;
+    font-weight:900;
+    font-size:168px;
+    line-height:.88;
+    letter-spacing:-5px;
+    color:var(--ink);
+    max-width:3200px;
+  }
+  .title em{
+    font-style:italic;
+    font-weight:300;
+    color:var(--red);
+  }
+  .authors{
+    text-align:right;
+    font-size:32px;
+    line-height:1.35;
+    color:var(--g700);
+    font-weight:400;
+    padding-bottom:12px;
+  }
+  .authors .names{ color:var(--ink); font-weight:700; font-size:36px; display:block; margin-bottom:6px;}
+  .authors .course{ font-family:"JetBrains Mono",monospace; font-size:22px; letter-spacing:.08em; color:var(--g500); margin-top:8px; display:block;}
+
+  /* ============= SECTION HEADS ============= */
+  .sec{ position:relative; padding-top:28px; }
+  .sec-num{
+    font-family:"Fraunces",serif;
+    font-size:44px;
+    font-weight:300;
+    color:var(--red);
+    letter-spacing:-1px;
+    position:absolute;
+    top:-6px;
+    left:0;
+    font-style:italic;
+  }
+  .sec-head{
+    font-size:40px;
+    font-weight:800;
+    letter-spacing:-.5px;
+    color:var(--ink);
+    text-transform:uppercase;
+    padding-left:88px;
+    margin-bottom:28px;
+    line-height:1;
+  }
+  .sec-body{ padding-left:0; }
+  .sec-body p{ font-size:30px; line-height:1.4; color:var(--g900); margin-bottom:20px; font-weight:400;}
+  .sec-body p strong{ font-weight:700; color:var(--ink); }
+  .sec-body ul{ list-style:none; padding:0;}
+  .sec-body li{
+    font-size:28px;
+    line-height:1.4;
+    color:var(--g900);
+    margin-bottom:18px;
+    padding-left:28px;
+    position:relative;
+  }
+  .sec-body li::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:16px;
+    width:14px;height:3px;
+    background:var(--red);
+  }
+  .sec-body li strong{ color:var(--ink); font-weight:700;}
+
+  /* ============= ROW 2 ============= */
+  .motiv{grid-column:1/5}
+  .approach{grid-column:5/9}
+  .setup{grid-column:9/13}
+
+  .stat-huge{
+    font-family:"Fraunces",serif;
+    font-weight:900;
+    font-size:180px;
+    line-height:.85;
+    color:var(--red);
+    letter-spacing:-6px;
+    margin:20px 0 12px 0;
+  }
+  .stat-huge .eq{ color:var(--g400); font-weight:300; margin-right:14px;}
+  .stat-cap{
+    font-size:24px;
+    color:var(--g700);
+    line-height:1.35;
+    margin-bottom:28px;
+    max-width:680px;
+  }
+  .question{
+    font-family:"Fraunces",serif;
+    font-weight:600;
+    font-style:italic;
+    font-size:36px;
+    color:var(--ink);
+    line-height:1.2;
+    padding:24px 0 24px 32px;
+    border-left:5px solid var(--red);
+    margin-top:8px;
+  }
+  .question em{color:var(--red);}
+
+  .setup-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:26px;
+    font-family:"Inter",sans-serif;
+  }
+  .setup-table tr{ border-bottom:1px solid var(--g300); }
+  .setup-table td{ padding:14px 0; vertical-align:baseline;}
+  .setup-table td:first-child{
+    font-family:"JetBrains Mono",monospace;
+    font-size:20px;
+    text-transform:uppercase;
+    letter-spacing:.12em;
+    color:var(--red);
+    font-weight:600;
+    width:34%;
+    padding-right:20px;
+  }
+  .setup-table td:last-child{ color:var(--g900); font-weight:400; }
+  .setup-table td:last-child b{ color:var(--ink); font-weight:700;}
+  .setup-note{
+    font-size:20px;
+    color:var(--g500);
+    line-height:1.4;
+    margin-top:24px;
+    font-style:italic;
+    max-width:820px;
+  }
+
+  /* ============= ROW 3: HERO + CROSS ============= */
+  .hero{ grid-column:1/9; padding-top:48px; border-top:3px solid var(--ink); padding-bottom:20px;}
+  .cross{ grid-column:9/13; padding-top:48px; border-top:3px solid var(--ink);}
+
+  .hero-head{
+    font-family:"JetBrains Mono",monospace;
+    font-size:24px;
+    letter-spacing:.3em;
+    text-transform:uppercase;
+    color:var(--red);
+    font-weight:600;
+    margin-bottom:30px;
+  }
+  .hero-grid{
+    display:grid;
+    grid-template-columns:1.1fr 1fr;
+    gap:100px;
+    align-items:start;
+  }
+  .bignumber{
+    font-family:"Fraunces",serif;
+    font-weight:900;
+    font-size:520px;
+    line-height:.78;
+    letter-spacing:-22px;
+    color:var(--red);
+    margin-top:-40px;
+  }
+  .bignumber-lbl{
+    font-family:"Fraunces",serif;
+    font-weight:300;
+    font-style:italic;
+    font-size:48px;
+    color:var(--ink);
+    line-height:1.2;
+    margin-top:24px;
+    max-width:1400px;
+  }
+  .bignumber-sub{
+    font-family:"JetBrains Mono",monospace;
+    font-size:22px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--g500);
+    margin-top:20px;
+  }
+  .metrics{
+    margin-top:48px;
+    padding-top:28px;
+    border-top:2px solid var(--ink);
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:24px 48px;
+  }
+  .metric{
+    display:flex;
+    flex-direction:column;
+  }
+  .metric .m-label{
+    font-family:"JetBrains Mono",monospace;
+    font-size:20px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--g500);
+    margin-bottom:4px;
+  }
+  .metric .m-value{
+    font-family:"Fraunces",serif;
+    font-weight:600;
+    font-size:52px;
+    color:var(--ink);
+    line-height:1;
+    font-variant-numeric:tabular-nums;
+  }
+  .metric .m-value .arrow{ color:var(--g400); margin:0 10px; font-weight:300;}
+  .metric .m-value .post{ color:var(--red); }
+  .metric .m-p{
+    font-family:"JetBrains Mono",monospace;
+    font-size:18px;
+    color:var(--g500);
+    margin-top:6px;
+    letter-spacing:.1em;
+  }
+  .hero-body{
+    font-size:24px;
+    line-height:1.45;
+    color:var(--g700);
+    margin-top:28px;
+    max-width:1550px;
+  }
+  .hero-body b{ color:var(--ink); font-weight:700;}
+
+  /* ============= CROSS FRAMEWORK TABLE ============= */
+  .cross h4{
+    font-size:24px;
+    font-weight:600;
+    color:var(--g700);
+    margin-bottom:16px;
+    line-height:1.3;
+    max-width:1100px;
+  }
+  .cross-tbl{
+    width:100%;
+    border-collapse:collapse;
+    font-size:24px;
+    margin-top:20px;
+    font-family:"Inter",sans-serif;
+  }
+  .cross-tbl th{
+    font-family:"JetBrains Mono",monospace;
+    font-size:18px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--g500);
+    font-weight:600;
+    padding:14px 12px;
+    border-bottom:2px solid var(--ink);
+    text-align:right;
+  }
+  .cross-tbl th:first-child{ text-align:left;}
+  .cross-tbl td{
+    padding:18px 12px;
+    border-bottom:1px solid var(--g300);
+    font-variant-numeric:tabular-nums;
+    font-weight:600;
+    text-align:right;
+    font-size:26px;
+  }
+  .cross-tbl td:first-child{ text-align:left; font-weight:700; color:var(--ink); }
+  .cross-tbl .sig{ color:var(--red); }
+  .cross-tbl .sig-strong{ color:var(--red); font-weight:800; font-size:28px;}
+  .cross-tbl .ns{ color:var(--g400); font-style:italic; font-weight:400;}
+  .cross-note{
+    font-size:18px;
+    color:var(--g500);
+    margin-top:16px;
+    font-style:italic;
+    line-height:1.4;
+  }
+
+  /* ============= ROW 4: DIVERGENCE + SIGNALS ============= */
+  .diverg{ grid-column:1/9; padding-top:48px; border-top:3px solid var(--ink);}
+  .sigs  { grid-column:9/13; padding-top:48px; border-top:3px solid var(--ink);}
+
+  .wires{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:30px;
+    margin:28px 0 24px 0;
+  }
+  .wire{
+    display:flex;
+    flex-direction:column;
+    gap:0;
+  }
+  .wire svg{ width:100%; height:auto; display:block; }
+  .wire-cap{
+    font-family:"JetBrains Mono",monospace;
+    font-size:20px;
+    letter-spacing:.1em;
+    color:var(--g500);
+    padding:14px 0 0 0;
+    text-transform:uppercase;
+  }
+  .wire-badge{
+    font-size:22px;
+    color:var(--g900);
+    padding:4px 0 0 0;
+    line-height:1.4;
+    font-weight:500;
+  }
+  .wire.bad .wire-badge { color:var(--red); }
+  .wire .metric-grid{
+    display:flex; gap:14px; margin-top:10px; flex-wrap:wrap;
+  }
+  .wire .metric-grid span{
+    font-family:"JetBrains Mono",monospace;
+    font-size:18px;
+    padding:4px 10px;
+    background:var(--g100);
+    color:var(--g700);
+    border-radius:4px;
+    letter-spacing:.05em;
+  }
+  .wire.bad .metric-grid .bad{
+    background:var(--red);
+    color:#fff;
+    font-weight:700;
+  }
+  .diverg-body{
+    font-size:26px;
+    line-height:1.45;
+    color:var(--g900);
+    margin-top:24px;
+  }
+  .diverg-body b{ color:var(--red); font-weight:700;}
+  .diverg-kicker{
+    margin-top:36px;
+    font-family:"Fraunces",serif;
+    font-weight:600;
+    font-style:italic;
+    font-size:46px;
+    color:var(--ink);
+    line-height:1.15;
+    padding-left:36px;
+    border-left:5px solid var(--red);
+    max-width:2400px;
+  }
+  .diverg-kicker em{ color:var(--red); font-weight:900; font-style:italic;}
+
+  /* ============= SIGNAL TABLE ============= */
+  .sig-tbl{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+    font-size:22px;
+    font-family:"Inter",sans-serif;
+  }
+  .sig-tbl th{
+    font-family:"JetBrains Mono",monospace;
+    font-size:18px;
+    letter-spacing:.14em;
+    color:var(--g500);
+    font-weight:600;
+    text-transform:uppercase;
+    padding:14px 10px;
+    border-bottom:2px solid var(--ink);
+    text-align:center;
+  }
+  .sig-tbl th:first-child{ text-align:left;}
+  .sig-tbl td{
+    padding:18px 10px;
+    border-bottom:1px solid var(--g300);
+    vertical-align:top;
+    text-align:center;
+  }
+  .sig-tbl td:first-child{ text-align:left; font-weight:700; color:var(--ink); font-size:24px; padding-top:22px;}
+  .sig-tbl .pick-strong{ color:var(--red); font-weight:800; }
+  .sig-tbl .pick-strong .big{ display:block; font-size:28px; margin-bottom:4px; }
+  .sig-tbl .pick-strong .sm{ font-family:"JetBrains Mono",monospace; font-size:18px; font-weight:500; letter-spacing:.06em; }
+  .sig-tbl .pick-good{ color:var(--ink); }
+  .sig-tbl .pick-good .big{ display:block; font-size:22px; font-weight:700; margin-bottom:4px; }
+  .sig-tbl .pick-good .sm{ font-family:"JetBrains Mono",monospace; font-size:16px; color:var(--g500); font-weight:500; letter-spacing:.05em;}
+  .sig-tbl .pick-flat{ color:var(--g400); font-style:italic; font-size:22px;}
+  .sig-note{
+    font-size:22px;
+    line-height:1.4;
+    color:var(--g700);
+    margin-top:24px;
+  }
+  .sig-note b{ color:var(--ink); font-weight:700;}
+
+  /* ============= TAKEAWAY STRIP ============= */
+  .takeaway{
+    grid-column:1/-1;
+    padding:56px 80px;
+    background:var(--ink);
+    color:#fff;
+    font-family:"Fraunces",serif;
+    font-weight:600;
+    font-size:56px;
+    line-height:1.2;
+    letter-spacing:-1px;
+    display:grid;
+    grid-template-columns:auto 1fr;
+    gap:60px;
+    align-items:center;
+  }
+  .takeaway .label{
+    font-family:"JetBrains Mono",monospace;
+    font-size:26px;
+    letter-spacing:.3em;
+    color:var(--red);
+    font-weight:600;
+    text-transform:uppercase;
+    writing-mode:vertical-rl;
+    transform:rotate(180deg);
+    padding:20px 0;
+    border-left:3px solid var(--red);
+    padding-left:24px;
+  }
+  .takeaway .text em{ color:var(--red); font-style:italic; }
+
+  /* ============= BOTTOM: future + refs + QR ============= */
+  .footer{
+    grid-column:1/-1;
+    display:grid;
+    grid-template-columns:1.2fr 1.2fr auto;
+    gap:80px;
+    padding-top:20px;
+  }
+  .footer h5{
+    font-family:"JetBrains Mono",monospace;
+    font-size:20px;
+    letter-spacing:.2em;
+    color:var(--red);
+    font-weight:600;
+    text-transform:uppercase;
+    margin-bottom:16px;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:10px;
+  }
+  .footer ul{ list-style:none; }
+  .footer li{
+    font-size:22px;
+    line-height:1.4;
+    color:var(--g900);
+    margin-bottom:10px;
+    padding-left:22px;
+    position:relative;
+  }
+  .footer li::before{
+    content:"→";
+    position:absolute;
+    left:0; top:0;
+    color:var(--red);
+    font-weight:700;
+  }
+  .footer .refs li::before{ content:"·"; color:var(--g400); font-size:28px; top:-6px;}
+  .footer .caveat{
+    font-size:18px;
+    color:var(--g500);
+    font-style:italic;
+    margin-top:16px;
+    line-height:1.4;
+    padding-top:12px;
+    border-top:1px solid var(--g300);
+  }
+  .qr-wrap{ text-align:center; align-self:start;}
+  .qr-wrap svg{ display:block; margin:0 auto;}
+  .qr-lbl{
+    font-family:"JetBrains Mono",monospace;
+    font-size:18px;
+    letter-spacing:.2em;
+    text-transform:uppercase;
+    color:var(--g500);
+    margin-top:14px;
+  }
+</style>
+</head>
+<body>
+<div class="fit">
+<div class="scaler" id="scaler">
+<div class="poster">
+
+  <!-- ==================== TITLE BAND ==================== -->
+  <div class="titleband">
+    <div>
+      <span class="eyebrow">· CMU 11-711 · Advanced NLP · Spring 2026 ·</span>
+      <h1 class="title">Repurposing GUI Grounding<br>for <em>Automated UI Code Repair</em></h1>
+    </div>
+    <div></div>
+    <div class="authors">
+      <span class="names">Isaac Au · Alice Le</span>
+      Carnegie Mellon University<br>
+      School of Computer Science
+      <span class="course">designbench · qwen2.5-vl · omniparser · jedi</span>
+    </div>
+  </div>
+
+  <!-- ==================== ROW 2: MOTIV · APPROACH · SETUP ==================== -->
+  <div class="sec motiv">
+    <span class="sec-num">01</span>
+    <h2 class="sec-head">The Gap</h2>
+    <div class="sec-body">
+      <div class="stat-huge"><span class="eq">r =</span>0.12</div>
+      <div class="stat-cap">Pearson correlation between correct defect identification and correct code fix, on the 7B baseline. Knowing <em>what</em> is broken barely predicts fixing it.</div>
+      <p class="question">Can off-the-shelf GUI grounding supply the missing <em>visual-to-code</em> mapping, at zero retraining cost?</p>
+    </div>
+  </div>
+
+  <div class="sec approach">
+    <span class="sec-num">02</span>
+    <h2 class="sec-head">Method</h2>
+    <div class="sec-body">
+      <ul>
+        <li><strong>OmniParser structural.</strong> YOLO bboxes, Florence-2 captions, EasyOCR text, pairwise geometric relations. Serialized as a text block in the prompt.</li>
+        <li><strong>JEDI-7B click coords.</strong> Per-defect <code>(x, y)</code> click points injected as natural language: <span class="mono">"click at 412, 87"</span>.</li>
+        <li><strong>Prepend to Qwen2.5-VL</strong> repair prompt. Compare each grounded variant against the ungrounded baseline on the same 111 samples, paired stats.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="sec setup">
+    <span class="sec-num">03</span>
+    <h2 class="sec-head">Setup</h2>
+    <div class="sec-body">
+      <table class="setup-table">
+        <tr><td>Samples</td><td><b>111</b> DesignBench repair tasks</td></tr>
+        <tr><td>Frameworks</td><td>React 28 · Vue 27 · Angular 28 · Vanilla 28</td></tr>
+        <tr><td>Model</td><td>Qwen2.5-VL · <b>7B</b> and <b>72B</b></td></tr>
+        <tr><td>Sampling</td><td>temp = 0, seed = 42</td></tr>
+        <tr><td>Stats</td><td>Wilcoxon, McNemar · α = .05</td></tr>
+      </table>
+      <div class="setup-note">72B is the generation backbone per our baseline analysis. 7B is characterized as a stress-test (also JEDI's base model).</div>
+    </div>
+  </div>
+
+  <!-- ==================== ROW 3: HERO + CROSS ==================== -->
+  <div class="hero">
+    <div class="hero-head">04 · Headline result</div>
+    <div class="hero-grid">
+      <div>
+        <div class="bignumber">+.141</div>
+        <div class="bignumber-lbl">CLIP gain on the weakest baseline cell: <em>7B Qwen2.5-VL + OmniParser</em> on Angular.</div>
+        <div class="bignumber-sub">N = 28 · p = .007 · paired Wilcoxon</div>
+        <div class="metrics">
+          <div class="metric">
+            <div class="m-label">CLIP</div>
+            <div class="m-value">.486<span class="arrow">→</span><span class="post">.627</span></div>
+            <div class="m-p">p = .007 **</div>
+          </div>
+          <div class="metric">
+            <div class="m-label">SSIM</div>
+            <div class="m-value">.407<span class="arrow">→</span><span class="post">.519</span></div>
+            <div class="m-p">p = .002 **</div>
+          </div>
+          <div class="metric">
+            <div class="m-label">CMCS</div>
+            <div class="m-value"><span class="post">+.073</span></div>
+            <div class="m-p">p = .048 *</div>
+          </div>
+          <div class="metric">
+            <div class="m-label">CSR</div>
+            <div class="m-value">57%<span class="arrow">→</span><span class="post">75%</span></div>
+            <div class="m-p">McNemar exact</div>
+          </div>
+        </div>
+        <p class="hero-body">Angular repairs require coordinated edits across <code>template.html</code> and <code>component.ts</code>. The 7B baseline fails <b>43% of samples</b>. OmniParser's element list and geometric relations supply the spatial scaffolding the model lacks.</p>
+      </div>
+
+      <!-- SVG BAR CHART -->
+      <div>
+        <svg viewBox="0 0 800 900" width="100%" style="font-family:'Inter',sans-serif">
+          <defs>
+            <pattern id="hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+              <rect width="8" height="8" fill="#4a4a4a"/>
+              <line x1="0" y1="0" x2="0" y2="8" stroke="#3a3a3a" stroke-width="2"/>
+            </pattern>
+          </defs>
+          <!-- y-axis -->
+          <line x1="70" y1="40" x2="70" y2="760" stroke="#111" stroke-width="3"/>
+          <!-- x-axis -->
+          <line x1="70" y1="760" x2="780" y2="760" stroke="#111" stroke-width="3"/>
+          <!-- gridlines -->
+          <g stroke="#e0e0e0" stroke-width="1.5" stroke-dasharray="4,6">
+            <line x1="70" y1="616" x2="780" y2="616"/>
+            <line x1="70" y1="472" x2="780" y2="472"/>
+            <line x1="70" y1="328" x2="780" y2="328"/>
+            <line x1="70" y1="184" x2="780" y2="184"/>
+            <line x1="70" y1="40"  x2="780" y2="40"/>
+          </g>
+          <!-- y-axis labels -->
+          <g font-size="22" fill="#7a7a7a" font-family="JetBrains Mono" text-anchor="end">
+            <text x="60" y="768">0</text>
+            <text x="60" y="624">.25</text>
+            <text x="60" y="480">.50</text>
+            <text x="60" y="336">.75</text>
+            <text x="60" y="48">1.0</text>
+          </g>
+
+          <!-- Bars: origin y=760, max y=40, range=720 px -->
+          <!-- CLIP group centered around x=205 -->
+          <!-- SSIM group centered around x=425 -->
+          <!-- CSR group centered around x=645 -->
+
+          <!-- CLIP bars: baseline .486, omni .627, jedi .595 -->
+          <g>
+            <rect x="130" y="410" width="60" height="350" fill="#4a4a4a"/>
+            <rect x="205" y="308" width="60" height="452" fill="#C41230"/>
+            <rect x="280" y="331" width="60" height="429" fill="#E8A4A4"/>
+            <text x="160" y="395" text-anchor="middle" font-size="22" font-weight="700" fill="#111">.486</text>
+            <text x="235" y="293" text-anchor="middle" font-size="22" font-weight="700" fill="#C41230">.627</text>
+            <text x="235" y="268" text-anchor="middle" font-size="28" font-weight="900" fill="#C41230">∗∗</text>
+            <text x="310" y="316" text-anchor="middle" font-size="22" font-weight="700" fill="#111">.595</text>
+            <text x="235" y="805" text-anchor="middle" font-size="28" font-weight="800" fill="#111">CLIP</text>
+          </g>
+
+          <!-- SSIM bars: baseline .407, omni .519, jedi .471 -->
+          <g>
+            <rect x="370" y="467" width="60" height="293" fill="#4a4a4a"/>
+            <rect x="445" y="387" width="60" height="373" fill="#C41230"/>
+            <rect x="520" y="421" width="60" height="339" fill="#E8A4A4"/>
+            <text x="400" y="452" text-anchor="middle" font-size="22" font-weight="700" fill="#111">.407</text>
+            <text x="475" y="372" text-anchor="middle" font-size="22" font-weight="700" fill="#C41230">.519</text>
+            <text x="475" y="347" text-anchor="middle" font-size="28" font-weight="900" fill="#C41230">∗∗</text>
+            <text x="550" y="406" text-anchor="middle" font-size="22" font-weight="700" fill="#111">.471</text>
+            <text x="475" y="805" text-anchor="middle" font-size="28" font-weight="800" fill="#111">SSIM</text>
+          </g>
+
+          <!-- CSR bars: baseline .57, omni .75, jedi .68 -->
+          <g>
+            <rect x="610" y="350" width="60" height="410" fill="#4a4a4a"/>
+            <rect x="685" y="220" width="60" height="540" fill="#C41230"/>
+            <rect x="760" y="270" width="60" height="490" fill="#E8A4A4"/>
+            <text x="640" y="335" text-anchor="middle" font-size="22" font-weight="700" fill="#111">57%</text>
+            <text x="715" y="205" text-anchor="middle" font-size="22" font-weight="700" fill="#C41230">75%</text>
+            <text x="715" y="180" text-anchor="middle" font-size="28" font-weight="900" fill="#C41230">∗</text>
+            <text x="790" y="255" text-anchor="middle" font-size="22" font-weight="700" fill="#111">68%</text>
+            <text x="715" y="805" text-anchor="middle" font-size="28" font-weight="800" fill="#111">CSR</text>
+          </g>
+
+          <!-- Legend -->
+          <g transform="translate(70, 860)" font-size="20" font-family="Inter" fill="#4a4a4a">
+            <rect x="0" y="-16" width="20" height="20" fill="#4a4a4a"/>
+            <text x="30" y="0">baseline</text>
+            <rect x="180" y="-16" width="20" height="20" fill="#C41230"/>
+            <text x="210" y="0">+ OmniParser</text>
+            <rect x="400" y="-16" width="20" height="20" fill="#E8A4A4"/>
+            <text x="430" y="0">+ JEDI</text>
+            <text x="580" y="0" fill="#7a7a7a" font-style="italic">∗∗ p&lt;.01  ∗ p&lt;.05</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- CROSS FRAMEWORK -->
+  <div class="cross">
+    <div class="hero-head">05 · Holds on 72B</div>
+    <h4>OmniParser lifts visuals on three of four frameworks for the stronger model. AST metrics drift mildly negative, never significantly.</h4>
+    <table class="cross-tbl">
+      <tr><th>Framework</th><th>CLIP Δ</th><th>SSIM Δ</th><th>MAE Δ</th></tr>
+      <tr><td>Vanilla</td><td class="sig-strong">+.018 **</td><td class="sig-strong">+.019 **</td><td class="sig">−.337 *</td></tr>
+      <tr><td>Vue</td>    <td class="sig">+.012 **</td>      <td class="ns">n.s.</td>         <td class="ns">n.s.</td></tr>
+      <tr><td>Angular</td><td class="sig">+.009 *</td>       <td class="sig">+.003 *</td>    <td class="ns">n.s.</td></tr>
+      <tr><td>React</td>  <td class="ns">n.s.</td>           <td class="ns">n.s.</td>        <td class="ns">n.s.</td></tr>
+    </table>
+    <div class="cross-note">Δ vs ungrounded baseline, paired Wilcoxon two-sided. Red = p &lt; .05.</div>
+  </div>
+
+  <!-- ==================== ROW 4: DIVERGENCE + SIGNALS ==================== -->
+  <div class="diverg">
+    <div class="hero-head">06 · Code-perfect ≠ Visually-correct</div>
+    <p class="diverg-body">On <code>vanilla/sample_14</code>, 7B scores <b>CMLS 1.00, CMCS 1.00, IssAcc 1.00</b>. The render is still wrong. The AST-level metrics only score edits overlapping the reference set; unmatched edits that break the layout go unpenalized.</p>
+
+    <div class="wires">
+      <!-- panel 1: broken -->
+      <div class="wire">
+        <svg viewBox="0 0 400 280" width="100%">
+          <rect x="2" y="2" width="396" height="276" fill="#fafafa" stroke="#d0d0d0" stroke-width="2" stroke-dasharray="8 6"/>
+          <!-- nav bar -->
+          <rect x="20" y="20" width="360" height="30" fill="#e8e8e8"/>
+          <!-- sidebar block -->
+          <rect x="20" y="70" width="100" height="190" fill="#f0f0f0" stroke="#d0d0d0"/>
+          <!-- off-center card -->
+          <rect x="150" y="90" width="140" height="150" fill="#fff" stroke="#a6a6a6" stroke-width="2"/>
+          <circle cx="220" cy="140" r="22" fill="#e8e8e8"/>
+          <rect x="170" y="180" width="100" height="8" fill="#d0d0d0"/>
+          <rect x="180" y="200" width="80" height="6" fill="#e8e8e8"/>
+          <rect x="180" y="214" width="80" height="6" fill="#e8e8e8"/>
+          <!-- misalignment marker -->
+          <line x1="200" y1="255" x2="200" y2="265" stroke="#C41230" stroke-width="2"/>
+          <text x="200" y="275" text-anchor="middle" font-size="10" fill="#C41230" font-family="JetBrains Mono">off-center</text>
+        </svg>
+        <div class="wire-cap">Broken input</div>
+        <div class="wire-badge">Profile card text misaligned from card center.</div>
+      </div>
+      <!-- panel 2: ground truth -->
+      <div class="wire">
+        <svg viewBox="0 0 400 280" width="100%">
+          <rect x="2" y="2" width="396" height="276" fill="#fafafa" stroke="#d0d0d0" stroke-width="2" stroke-dasharray="8 6"/>
+          <rect x="20" y="20" width="360" height="30" fill="#e8e8e8"/>
+          <rect x="20" y="70" width="100" height="190" fill="#f0f0f0" stroke="#d0d0d0"/>
+          <!-- centered card -->
+          <rect x="150" y="90" width="140" height="150" fill="#fff" stroke="#2a8a3d" stroke-width="2"/>
+          <circle cx="220" cy="140" r="22" fill="#e8e8e8"/>
+          <rect x="180" y="180" width="80" height="8" fill="#d0d0d0"/>
+          <rect x="185" y="200" width="70" height="6" fill="#e8e8e8"/>
+          <rect x="185" y="214" width="70" height="6" fill="#e8e8e8"/>
+          <line x1="220" y1="255" x2="220" y2="265" stroke="#2a8a3d" stroke-width="2"/>
+          <text x="220" y="275" text-anchor="middle" font-size="10" fill="#2a8a3d" font-family="JetBrains Mono">centered</text>
+        </svg>
+        <div class="wire-cap">Ground truth</div>
+        <div class="wire-badge">Reference fix: center the card text.</div>
+      </div>
+      <!-- panel 3: 7B output (wrong) -->
+      <div class="wire bad">
+        <svg viewBox="0 0 400 280" width="100%">
+          <rect x="2" y="2" width="396" height="276" fill="#fff5f7" stroke="#C41230" stroke-width="2" stroke-dasharray="8 6"/>
+          <rect x="20" y="20" width="360" height="30" fill="#e8e8e8"/>
+          <rect x="20" y="70" width="100" height="190" fill="#f0f0f0" stroke="#d0d0d0"/>
+          <!-- Full-width stretched card -->
+          <rect x="130" y="90" width="250" height="150" fill="#fff" stroke="#C41230" stroke-width="2"/>
+          <circle cx="255" cy="140" r="22" fill="#e8e8e8"/>
+          <rect x="200" y="180" width="110" height="8" fill="#d0d0d0"/>
+          <rect x="210" y="200" width="90" height="6" fill="#e8e8e8"/>
+          <rect x="210" y="214" width="90" height="6" fill="#e8e8e8"/>
+          <text x="255" y="275" text-anchor="middle" font-size="10" fill="#C41230" font-family="JetBrains Mono">stretched full-width</text>
+        </svg>
+        <div class="wire-cap">7B output</div>
+        <div class="wire-badge">AST edits land on the right nodes · render is wrong.</div>
+        <div class="metric-grid">
+          <span>CMLS 1.00</span>
+          <span>CMCS 1.00</span>
+          <span>IssAcc 1.00</span>
+          <span class="bad">CLIP .906</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="diverg-body"><b>Same pattern at scale.</b> 72B + OmniParser on <b>68 alignment defects</b> pooled across frameworks: CLIP +.007 (p &lt; .01) rises while CMLS −.055 and CMCS −.045 (p &lt; .05) drop on the <em>same</em> samples. Two metrics say better. Two say worse.</p>
+
+    <div class="diverg-kicker">On generative UI repair, <em>CLIP</em> is the metric to trust.</div>
+  </div>
+
+  <!-- SIGNAL TABLE -->
+  <div class="sigs">
+    <div class="hero-head">07 · Which signal, when?</div>
+    <table class="sig-tbl">
+      <tr><th>Framework</th><th>7B</th><th>72B</th></tr>
+      <tr>
+        <td>Angular</td>
+        <td class="pick-strong"><span class="big">OmniParser</span><span class="sm">CLIP +.14 · CSR +18pp</span></td>
+        <td class="pick-good"><span class="big">OmniParser</span><span class="sm">CLIP +.01</span></td>
+      </tr>
+      <tr>
+        <td>Vanilla</td>
+        <td class="pick-flat">flat</td>
+        <td class="pick-good"><span class="big">OmniParser / JEDI</span><span class="sm">CLIP +.02 · SSIM +.02</span></td>
+      </tr>
+      <tr>
+        <td>Vue</td>
+        <td class="pick-good"><span class="big">OmniParser</span><span class="sm">CLIP +.02</span></td>
+        <td class="pick-good"><span class="big">OmniParser / JEDI</span><span class="sm">CLIP +.01</span></td>
+      </tr>
+      <tr>
+        <td>React</td>
+        <td class="pick-flat">neutral</td>
+        <td class="pick-good"><span class="big">JEDI</span><span class="sm">SSIM +.01 · MAE −1.2</span></td>
+      </tr>
+    </table>
+    <p class="sig-note"><b>Spatial defects &gt; property defects in difficulty.</b> Overflow and occlusion drive 38% of 7B compile failures; color/contrast is tractable at 27%. OmniParser encodes exactly what hard defects need: bboxes, relations, element text.</p>
+  </div>
+
+  <!-- ==================== TAKEAWAY ==================== -->
+  <div class="takeaway">
+    <div class="label">Takeaway</div>
+    <div class="text">GUI grounding is <em>free-lunch</em> prompt scaffolding for VLM UI repair. It helps most where the model is weakest, and the right metric to trust is <em>CLIP</em>.</div>
+  </div>
+
+  <!-- ==================== FOOTER ==================== -->
+  <div class="footer">
+    <div>
+      <h5>08 · Future work</h5>
+      <ul>
+        <li><b>Hybrid OmniParser + JEDI.</b> OmniParser lifts visuals, JEDI lifts IssAcc and CMLS on 7B Angular. Combine them.</li>
+        <li><b>Diff-aware grounding.</b> Ground only the broken-vs-target diff regions for a sharper signal.</li>
+        <li><b>Defect-conditioned prompts.</b> OCR-heavy for text defects, relations-heavy for alignment.</li>
+      </ul>
+    </div>
+    <div class="refs">
+      <h5>09 · References</h5>
+      <ul>
+        <li>Xie et al. · <em>DesignBench</em>, 2025.</li>
+        <li>Microsoft · <em>OmniParser v2</em>.</li>
+        <li>xlangai · <em>JEDI-7B-1080p</em>, 2025.</li>
+        <li>Au & Le · <em>Evaluating DesignBench Baselines</em>, 2026.</li>
+      </ul>
+      <div class="caveat">JEDI's IssAcc gains are partially confounded: the prompt names the defect type. Visual metrics (CLIP, SSIM, MAE) are unaffected.</div>
+    </div>
+    <div class="qr-wrap">
+      <svg viewBox="0 0 180 180" width="180" height="180" shape-rendering="crispEdges">
+        <rect width="180" height="180" fill="#fff"/>
+        <!-- positioning corners -->
+        <g fill="#111">
+          <rect x="0" y="0" width="50" height="50"/>
+        </g>
+        <rect x="10" y="10" width="30" height="30" fill="#fff"/>
+        <rect x="20" y="20" width="10" height="10" fill="#111"/>
+
+        <rect x="130" y="0" width="50" height="50" fill="#111"/>
+        <rect x="140" y="10" width="30" height="30" fill="#fff"/>
+        <rect x="150" y="20" width="10" height="10" fill="#111"/>
+
+        <rect x="0" y="130" width="50" height="50" fill="#111"/>
+        <rect x="10" y="140" width="30" height="30" fill="#fff"/>
+        <rect x="20" y="150" width="10" height="10" fill="#111"/>
+
+        <!-- timing lines (dots) -->
+        <g fill="#111">
+          <rect x="60" y="0" width="10" height="10"/>
+          <rect x="80" y="0" width="10" height="10"/>
+          <rect x="100" y="0" width="10" height="10"/>
+          <rect x="120" y="0" width="10" height="10"/>
+          <rect x="0" y="60" width="10" height="10"/>
+          <rect x="0" y="80" width="10" height="10"/>
+          <rect x="0" y="100" width="10" height="10"/>
+          <rect x="0" y="120" width="10" height="10"/>
+        </g>
+        <!-- pseudo-random data cells -->
+        <g fill="#111">
+          <rect x="60" y="20" width="10" height="10"/><rect x="80" y="40" width="10" height="10"/>
+          <rect x="100" y="20" width="10" height="10"/><rect x="120" y="40" width="10" height="10"/>
+          <rect x="60" y="60" width="10" height="10"/><rect x="70" y="70" width="10" height="10"/>
+          <rect x="90" y="60" width="10" height="10"/><rect x="110" y="70" width="10" height="10"/>
+          <rect x="130" y="60" width="10" height="10"/><rect x="150" y="70" width="10" height="10"/>
+          <rect x="60" y="90" width="10" height="10"/><rect x="80" y="80" width="10" height="10"/>
+          <rect x="100" y="100" width="10" height="10"/><rect x="120" y="90" width="10" height="10"/>
+          <rect x="140" y="90" width="10" height="10"/><rect x="160" y="100" width="10" height="10"/>
+          <rect x="70" y="110" width="10" height="10"/><rect x="90" y="120" width="10" height="10"/>
+          <rect x="110" y="110" width="10" height="10"/><rect x="130" y="120" width="10" height="10"/>
+          <rect x="150" y="110" width="10" height="10"/><rect x="170" y="130" width="10" height="10"/>
+          <rect x="60" y="140" width="10" height="10"/><rect x="80" y="150" width="10" height="10"/>
+          <rect x="100" y="140" width="10" height="10"/><rect x="120" y="160" width="10" height="10"/>
+          <rect x="140" y="150" width="10" height="10"/><rect x="160" y="140" width="10" height="10"/>
+        </g>
+      </svg>
+      <div class="qr-lbl">· Code + Data ·</div>
+    </div>
+  </div>
+
+</div> <!-- /poster -->
+</div> <!-- /scaler -->
+</div> <!-- /fit -->
+
+<script>
+  function fit(){
+    const s = document.getElementById('scaler');
+    const sx = window.innerWidth / 4800;
+    const sy = window.innerHeight / 3600;
+    const scale = Math.min(sx, sy) * 0.97;
+    s.style.transform = `scale(${scale})`;
+  }
+  window.addEventListener('resize', fit); fit();
+</script>
+</body>
+</html>
