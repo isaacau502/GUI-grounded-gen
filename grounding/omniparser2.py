@@ -220,6 +220,7 @@ class OmniParserList:
                 pixel_values=inputs["pixel_values"],
                 max_new_tokens=64,
                 num_beams=3,
+                use_cache=False,
             )
         caption = self.caption_processor.batch_decode(
             generated_ids, skip_special_tokens=False

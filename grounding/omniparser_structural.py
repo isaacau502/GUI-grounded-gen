@@ -240,6 +240,7 @@ class OmniParserStructural:
                 input_ids=inputs["input_ids"],
                 pixel_values=inputs["pixel_values"],
                 max_new_tokens=64, num_beams=3,
+                use_cache=False,
             )
         caption = self.caption_processor.batch_decode(
             ids, skip_special_tokens=False

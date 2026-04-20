@@ -116,10 +116,11 @@ def patch_florence2_cache(verbose: bool = True) -> int:
                     if verbose:
                         print(f"[florence2-patch] write failed {cf}: {e}")
 
-    # --- Patch 2b: modeling_florence2.py — add _supports_sdpa + related
-    # class attributes that newer transformers expects on PreTrainedModel
-    # subclasses but older Florence-2 remote code doesn't set.
-    MARKER_MODEL = "# florence2-patch: modern transformers attrs"
+    # --- Patch 2b: modeling_florence2.py — idempotent, multi-part modernization
+    # Each sub-patch checks its own marker so they apply independently and
+    # re-runs are safe (no duplicate insertions).
+    MARKER_ATTRS = "# florence2-patch: modern transformers attrs"
+    MARKER_CACHE = "# florence2-patch: encoder-decoder cache"
     for root in cache_roots:
         if not root or not os.path.isdir(root):
             continue
@@ -132,30 +133,51 @@ def patch_florence2_cache(verbose: bool = True) -> int:
                     src = f.read()
             except Exception:
                 continue
-            if MARKER_MODEL in src:
-                continue
             new_src = src
             import re
-            # Patch every Florence2*PreTrainedModel / ForConditionalGeneration
-            # class with safe defaults for SDPA/flash attn attributes.
-            for cls in (
-                "Florence2PreTrainedModel",
-                "Florence2ForConditionalGeneration",
-                "Florence2LanguagePreTrainedModel",
-                "Florence2LanguageForConditionalGeneration",
-                "Florence2VisionModel",
-            ):
-                pat = re.compile(
-                    rf"^(class\s+{cls}\s*\([^)]*\)\s*:\s*\n)",
-                    re.MULTILINE,
-                )
-                def repl(m):
-                    return m.group(1) + (
-                        f"    _supports_sdpa = True  {MARKER_MODEL}\n"
-                        f"    _supports_flash_attn_2 = False  {MARKER_MODEL}\n"
-                        f"    _supports_cache_class = False  {MARKER_MODEL}\n"
+
+            # (a) Class-level attrs — only if marker absent
+            if MARKER_ATTRS not in new_src:
+                for cls in (
+                    "Florence2PreTrainedModel",
+                    "Florence2ForConditionalGeneration",
+                    "Florence2LanguagePreTrainedModel",
+                    "Florence2LanguageForConditionalGeneration",
+                    "Florence2VisionModel",
+                ):
+                    pat = re.compile(
+                        rf"^(class\s+{cls}\s*\([^)]*\)\s*:\s*\n)",
+                        re.MULTILINE,
                     )
-                new_src = pat.sub(repl, new_src, count=1)
+                    def repl(m):
+                        return m.group(1) + (
+                            f"    _supports_sdpa = True  {MARKER_ATTRS}\n"
+                            f"    _supports_flash_attn_2 = False  {MARKER_ATTRS}\n"
+                            f"    _supports_cache_class = False  {MARKER_ATTRS}\n"
+                        )
+                    new_src = pat.sub(repl, new_src, count=1)
+
+            # (b) Cache subscript fix — replace ALL occurrences of
+            # `past_key_values[0][0].shape[2]` with a helper call that
+            # works for both tuple caches and EncoderDecoderCache objects.
+            # Also handles the variant with `if past_key_values is not None else 0`.
+            if MARKER_CACHE not in new_src:
+                import re as _re
+                # Replace exact subscript expression with a helper expression
+                pkv_expr_pattern = _re.compile(
+                    r"past_key_values\[0\]\[0\]\.shape\[2\]"
+                )
+                replacement = (
+                    "(past_key_values.get_seq_length() "
+                    "if hasattr(past_key_values, 'get_seq_length') "
+                    "else past_key_values[0][0].shape[2])"
+                )
+                n_replaced = len(pkv_expr_pattern.findall(new_src))
+                if n_replaced > 0:
+                    new_src = pkv_expr_pattern.sub(replacement, new_src)
+                    # Add marker at top of file so we don't re-patch
+                    new_src = f"{MARKER_CACHE}\n" + new_src
+
             if new_src != src:
                 try:
                     with open(cf, "w") as f:
@@ -236,22 +258,43 @@ def _is_known_attr_error(e: Exception) -> bool:
     return isinstance(e, AttributeError) and any(k in msg for k in _KNOWN_ATTRS)
 
 
-def load_florence2_processor_safe(florence_base: str = "microsoft/Florence-2-base"):
-    """Load Florence-2 processor with automatic bug workaround.
+def _is_known_cache_error(e: Exception) -> bool:
+    """EncoderDecoderCache subscript error from modern transformers."""
+    msg = str(e)
+    return isinstance(e, TypeError) and "EncoderDecoderCache" in msg
 
-    Florence-2's remote code (`trust_remote_code=True`) was written against
-    old transformers APIs and breaks on modern versions. We patch the cached
-    source files on demand and retry.
-    """
+
+def _ensure_files_downloaded(florence_base: str):
+    """Trigger download of remote code files (no weights loaded)."""
+    try:
+        from transformers import AutoConfig
+        AutoConfig.from_pretrained(florence_base, trust_remote_code=True)
+    except Exception:
+        pass  # Errors expected; real load will surface them
+
+
+def load_florence2_processor_safe(florence_base: str = "microsoft/Florence-2-base"):
+    """Load Florence-2 processor. Pre-patches cached source files so all
+    known modern-transformers bugs are fixed before first inference."""
     from transformers import AutoProcessor
 
-    for attempt in range(3):  # up to 3 retries; different bugs may chain
+    # Step 1: ensure remote-code files are on disk (cheap load that may fail)
+    _ensure_files_downloaded(florence_base)
+
+    # Step 2: apply all patches preemptively (idempotent)
+    patch_florence2_cache(verbose=True)
+
+    # Step 3: clear any cached modules so patched source is re-read
+    _clear_florence2_modules()
+
+    # Step 4: real load with reactive retry for patches we didn't anticipate
+    for attempt in range(3):
         try:
             return AutoProcessor.from_pretrained(florence_base, trust_remote_code=True)
         except Exception as e:
             if not _is_known_attr_error(e):
                 raise
-            print(f"[florence2-patch] attempt {attempt+1}: hit '{e}', patching...")
+            print(f"[florence2-patch] processor attempt {attempt+1}: '{e}', retry-patching...")
             patch_florence2_cache(verbose=True)
             _clear_florence2_modules()
     raise RuntimeError(
@@ -264,19 +307,16 @@ def load_florence2_model_safe(
     florence_base: str = "microsoft/Florence-2-base",
     torch_dtype=None,
 ):
-    """Load Florence-2 model with the same bug workaround.
-
-    Args:
-        torch_dtype: if provided (e.g. torch.float16), model loads directly
-            in that dtype. Recommended for OmniParser which ships fp16
-            safetensors — loading in fp16 from the start avoids the mixed
-            fp16/fp32 state_dict overlay problem.
-    """
+    """Load Florence-2 model with all known patches applied preemptively."""
     from transformers import AutoModelForCausalLM
 
     kwargs = {"trust_remote_code": True}
     if torch_dtype is not None:
         kwargs["torch_dtype"] = torch_dtype
+
+    # Preemptive patch (files should already be cached from processor load)
+    patch_florence2_cache(verbose=True)
+    _clear_florence2_modules()
 
     for attempt in range(3):
         try:
@@ -284,7 +324,7 @@ def load_florence2_model_safe(
         except Exception as e:
             if not _is_known_attr_error(e):
                 raise
-            print(f"[florence2-patch] model attempt {attempt+1}: '{e}', patching...")
+            print(f"[florence2-patch] model attempt {attempt+1}: '{e}', retry-patching...")
             patch_florence2_cache(verbose=True)
             _clear_florence2_modules()
     raise RuntimeError("Failed to load Florence-2 model after 3 patch attempts.")
