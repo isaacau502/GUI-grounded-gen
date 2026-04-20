@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Qualitative candidates: react × 7b × jedi</title>
+<style>
+  body { font-family: sans-serif; max-width: 1600px; margin: 20px auto; padding: 10px; }
+  h1 { font-size: 22px; }
+  h2 { font-size: 18px; margin-top: 30px; border-bottom: 2px solid #333; padding-bottom: 4px; }
+  .row { display: flex; gap: 10px; margin-bottom: 24px; align-items: flex-start; }
+  .col { flex: 1; text-align: center; }
+  .col img {
+    width: 100%; max-height: 400px; object-fit: contain;
+    border: 1px solid #ccc; background: #fafafa;
+  }
+  .col .label { font-size: 13px; font-weight: bold; margin-top: 4px; }
+  .col.missing img { content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60"><rect fill="%23eee" width="100" height="60"/><text x="50" y="30" text-anchor="middle" dominant-baseline="middle" fill="%23999" font-size="10">COMPILE FAIL</text></svg>'); }
+  .meta { font-size: 12px; color: #555; }
+  .gain-good { color: #1a7f37; font-weight: bold; }
+  .gain-bad { color: #a00; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Qualitative candidates: <code>react</code> × Qwen2.5-VL-<code>7b</code> × <code>+jedi</code></h1>
+<p class="meta">Ranked by CLIP loss (variant minus baseline). Top 10 shown.</p>
+<p class="meta">Column order: <b>broken input</b> | <b>reference target</b> | <b>baseline repair</b> | <b>+jedi repair</b>.</p>
+<h2>#1 — sample <code>14</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.761 → variant=0.000 <span class="gain-bad">(-0.761)</span> ·
+  compile: baseline=True, variant=False
+</div>
+<div class="row">
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/14/14.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/14/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct/react_14_qwen2.5-vl-7b-instruct_react_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col missing"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct+jedi/react_14_qwen2.5-vl-7b-instruct+jedi_react_both.png"/><div class="label">+JEDI REPAIR</div></div>
+</div>
+
+<h2>#2 — sample <code>9</code> · issue: <code>alignment, overflow</code></h2>
+<div class="meta">
+  CLIP baseline=0.756 → variant=0.000 <span class="gain-bad">(-0.756)</span> ·
+  compile: baseline=True, variant=False
+</div>
+<div class="row">
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/9/9.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/9/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct/react_9_qwen2.5-vl-7b-instruct_react_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col missing"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct+jedi/react_9_qwen2.5-vl-7b-instruct+jedi_react_both.png"/><div class="label">+JEDI REPAIR</div></div>
+</div>
+
+<h2>#3 — sample <code>24</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.672 → variant=0.000 <span class="gain-bad">(-0.672)</span> ·
+  compile: baseline=True, variant=False
+</div>
+<div class="row">
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/24/24.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/24/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct/react_24_qwen2.5-vl-7b-instruct_react_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col missing"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct+jedi/react_24_qwen2.5-vl-7b-instruct+jedi_react_both.png"/><div class="label">+JEDI REPAIR</div></div>
+</div>
+
+<h2>#4 — sample <code>22</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.634 → variant=0.000 <span class="gain-bad">(-0.634)</span> ·
+  compile: baseline=True, variant=False
+</div>
+<div class="row">
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/22/22.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/22/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct/react_22_qwen2.5-vl-7b-instruct_react_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col missing"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct+jedi/react_22_qwen2.5-vl-7b-instruct+jedi_react_both.png"/><div class="label">+JEDI REPAIR</div></div>
+</div>
+
+<h2>#5 — sample <code>21</code> · issue: <code>alignment, occlusion</code></h2>
+<div class="meta">
+  CLIP baseline=0.633 → variant=0.000 <span class="gain-bad">(-0.633)</span> ·
+  compile: baseline=True, variant=False
+</div>
+<div class="row">
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/21/21.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/21/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct/react_21_qwen2.5-vl-7b-instruct_react_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col missing"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct+jedi/react_21_qwen2.5-vl-7b-instruct+jedi_react_both.png"/><div class="label">+JEDI REPAIR</div></div>
+</div>
+
+<h2>#6 — sample <code>4</code> · issue: <code>alignment, crowding</code></h2>
+<div class="meta">
+  CLIP baseline=0.612 → variant=0.000 <span class="gain-bad">(-0.612)</span> ·
+  compile: baseline=True, variant=False
+</div>
+<div class="row">
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/4/4.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/4/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct/react_4_qwen2.5-vl-7b-instruct_react_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col missing"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct+jedi/react_4_qwen2.5-vl-7b-instruct+jedi_react_both.png"/><div class="label">+JEDI REPAIR</div></div>
+</div>
+
+<h2>#7 — sample <code>25</code> · issue: <code>alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.604 → variant=0.000 <span class="gain-bad">(-0.604)</span> ·
+  compile: baseline=True, variant=False
+</div>
+<div class="row">
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/25/25.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/25/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct/react_25_qwen2.5-vl-7b-instruct_react_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col missing"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct+jedi/react_25_qwen2.5-vl-7b-instruct+jedi_react_both.png"/><div class="label">+JEDI REPAIR</div></div>
+</div>
+
+<h2>#8 — sample <code>23</code> · issue: <code>alignment, occlusion</code></h2>
+<div class="meta">
+  CLIP baseline=0.583 → variant=0.000 <span class="gain-bad">(-0.583)</span> ·
+  compile: baseline=True, variant=False
+</div>
+<div class="row">
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/23/23.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/23/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct/react_23_qwen2.5-vl-7b-instruct_react_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col missing"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct+jedi/react_23_qwen2.5-vl-7b-instruct+jedi_react_both.png"/><div class="label">+JEDI REPAIR</div></div>
+</div>
+
+<h2>#9 — sample <code>26</code> · issue: <code>alignment, overflow</code></h2>
+<div class="meta">
+  CLIP baseline=0.574 → variant=0.000 <span class="gain-bad">(-0.574)</span> ·
+  compile: baseline=True, variant=False
+</div>
+<div class="row">
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/26/26.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/26/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct/react_26_qwen2.5-vl-7b-instruct_react_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col missing"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct+jedi/react_26_qwen2.5-vl-7b-instruct+jedi_react_both.png"/><div class="label">+JEDI REPAIR</div></div>
+</div>
+
+<h2>#10 — sample <code>15</code> · issue: <code>crowding, alignment</code></h2>
+<div class="meta">
+  CLIP baseline=0.571 → variant=0.000 <span class="gain-bad">(-0.571)</span> ·
+  compile: baseline=True, variant=False
+</div>
+<div class="row">
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/15/15.png"/><div class="label">BROKEN INPUT</div></div>
+  <div class="col"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/data/DesignRepair/react/15/repaired.png"/><div class="label">REFERENCE TARGET</div></div>
+  <div class="col "><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct/react_15_qwen2.5-vl-7b-instruct_react_both.png"/><div class="label">BASELINE REPAIR</div></div>
+  <div class="col missing"><img src="/Users/isaac/Documents/Coursework/11711/GUI-grounded-gen/external/DesignBench/results/repair/react-react/qwen2.5-vl-7b-instruct+jedi/react_15_qwen2.5-vl-7b-instruct+jedi_react_both.png"/><div class="label">+JEDI REPAIR</div></div>
+</div>
+
+</body></html>
