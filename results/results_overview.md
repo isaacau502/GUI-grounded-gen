@@ -2,100 +2,121 @@
 
 Each row = one significance-tested finding with a 1-line theorized mechanism.
 Stats source: `scripts/poster_stats.py`, Wilcoxon signed-rank paired (two-sided),
-McNemar exact binomial for CSR, α = 0.05. All from the DesignBench repair task,
-N = 22–68 per cell, temp=0 seed=42.
+McNemar exact binomial for CSR, α = 0.05. All from DesignBench repair,
+N = 22–68 per cell, temp=0 seed=42. **Full render complete as of 2026-04-20.**
 
-## Tier 1 — what goes on the poster (ranked)
+Summary: **27 significant gains, 12 significant regressions.**
+
+---
+
+## Tier 1 — poster headlines (ranked)
 
 ### 1. OmniParser structural on 7B Angular — hero cell
 
-**CLIP +.141 \*\* (p=.007)**, **SSIM +.111 \*\* (p=.002)**, **CMCS +.073 \* (p=.048)**, CSR .57 → .75 directional. Baseline 7B Angular CLIP was 0.49; with grounding it's 0.63.
+**CLIP +.141 ** (p=.007)**, **SSIM +.111 ** (p=.002)**, **CMCS +.073 * (p=.048)**. CSR .57 → .75 (6 extra samples compile, McNemar p=.125 directional).
 
-*Why it worked:* Angular repair requires coordinated edits across `template.html` + `component.ts` — "which element is broken" is severely underspecified from just the screenshot, so the weak 7B's spatial reasoning fails half the time (CSR .57 baseline). OmniParser's explicit bboxes + OCR text + element relations hand the model the scaffolding it couldn't derive on its own.
+Baseline 7B Angular: CLIP .486, SSIM .407, CSR 57%. With grounding: CLIP .627, SSIM .519, CSR 75%.
 
-### 2. OmniParser structural on 72B — visual-metric gains, three frameworks
+*Why:* Angular repair requires coordinated edits across `template.html` + `component.ts`; "which element is broken" is severely underspecified from screenshot alone. 7B's spatial reasoning fails on 43% of samples without help. OmniParser's bboxes + OCR + element relations supply the scaffolding.
+
+### 2. OmniParser on 72B — visual-metric gains, 3 of 4 frameworks
 
 | Framework | CLIP | SSIM | MAE |
 |-----------|------|------|-----|
-| Vue | **+.012** ** (p=.002) | — | — |
-| Angular | **+.009** * (p=.045) | **+.003** * (p=.026) | — |
-| Vanilla | **+.018** ** (p=.002) | **+.019** ** (p=.002) | **−.337** * (p=.030) |
+| Vue | **+.012 ** (p=.002)** | — | — |
+| Angular | **+.009 * (p=.045)** | **+.003 * (p=.026)** | — |
+| Vanilla | **+.018 ** (p=.002)** | **+.019 ** (p=.002)** | **−.337 * (p=.030)** |
 
-AST metrics (CMLS, CMCS) trend mildly negative but **none crosses α=0.05**.
+AST (CMLS, CMCS) trends mildly negative, never significant.
 
-*Why it worked:* Grounding nudges the strong 72B model toward repairs that visually match the target even when the resulting AST diverges from the reference code path. CMLS measures "reproduced the reference"; CLIP measures "fixed the defect". These can diverge — and they do here.
+*Why:* Grounding nudges the strong 72B toward repairs that visually match the target even when the AST diverges from reference. CMLS measures "reproduced the reference"; CLIP measures "fixed the defect." These can diverge.
 
-### 3. 7B + JEDI on React — the cautionary regression
+### 3. JEDI on 7B React — cautionary regression (all metrics blown out)
 
-**CMLS −.096 ** (p=.006)**, **CMCS −.084 ** (p=.006)**, **CLIP −.309 ** (p<.001)**, **SSIM −.304 ** (p<.001)**, **CSR 1.00 → 0.50 (p<.001)**. Every metric significantly worse. Half the React samples stopped compiling.
+**CSR 1.00 → 0.50 (p<.001)**, **CLIP −.309 (p<.001)**, **SSIM −.304 (p<.001)**, **MAE +52.6 (p<.001)**, **CMLS −.096 (p=.006)**, **CMCS −.084 (p=.006)**. Half the React samples stopped compiling.
 
-*Why it failed:* React samples are dominated by alignment defects (the single most common defect type); JEDI's parse rate on alignment is only 34%, so most injected "click targets" are either empty strings or malformed. The resulting noisy prompt context misleads the 7B model into producing broken JSX.
+*Why:* React samples are dominated by alignment defects (34% of all queries); JEDI's parse rate on alignment is 34% (worst across defect types). Most injected "click targets" for React are empty strings or malformed coords. The resulting noisy prompt context misleads 7B into producing broken JSX.
 
-### 4. Methodology note — CLIP > SSIM for generative UI repair
+### 4. JEDI on 72B — small but consistent visual gains on 3 non-Angular frameworks
+
+| Framework | CLIP | SSIM | MAE |
+|-----------|------|------|-----|
+| Vue | **+.015 * (p=.041)** | **+.012 ** (p<.001)** | **−.251 ** (p=.008)** |
+| Vanilla | **+.013 ** (p=.003)** | **+.026 * (p=.032)** | — |
+| React | — | **+.011 ** (p=.009)** | **−1.15 ** (p=.008)** |
+
+*Why:* JEDI's click coordinates focus the 72B model's attention on the defect region, producing small consistent improvements. Smaller effect than OmniParser on 7B because 72B already has strong internal spatial understanding — grounding refines rather than scaffolds.
+
+### 5. JEDI on 72B Angular — the flip — visual regression
+
+**CLIP −.013 ** (p=.005)**, **SSIM −.026 * (p=.020)**. IssAcc +.225 ** (p=.004) but *caveated by leakage*. CMLS/CMCS flat.
+
+*Why:* On Angular — where 72B was already strongest (CMLS .63, CLIP .82, CSR .96) — JEDI's click coordinates pull attention toward the defect but the model was already handling Angular well; the additional "click here" prompt displaces attention the model was using for accurate rendering, so visual fidelity drops.
+
+### 6. Methodology note — CLIP > SSIM for generative UI repair
 
 **7B + OmniParser on Vue: CLIP +.021 ** (p=.005) up, SSIM −.016 ** (p=.004) down.** Two visual metrics significantly disagree on the same cell.
 
-*Why:* CLIP (embedding-space similarity) rewards repairs that are *semantically* close to target; SSIM (per-pixel structural similarity) rewards repairs that *preserve pixel positions*. Grounding often fixes the defect correctly but re-lays-out the page, so SSIM drops even though the fix is right. **Argument for CLIP as the headline metric on DesignBench.**
+Plus: **7B + JEDI on Vue: CLIP +.012 * (p=.044) up, SSIM −.043 * (p=.025) down, MAE +4.78 * (p=.025) worse.** Same pattern with different grounding.
 
-### 5. Per-defect alignment slice — cleanest single result in the dataset
+*Why:* CLIP (embedding similarity) rewards semantic match; SSIM (per-pixel structural) rewards pixel-position preservation. Grounding often fixes the defect correctly but re-lays-out the page, so SSIM drops even though the fix is right. **Argument for CLIP as the headline metric on DesignBench.**
+
+### 7. Per-defect alignment slice — cleanest single result in the dataset
 
 **72B + OmniParser on alignment (N=68 pooled across all 4 frameworks):** CLIP **+.007 ** (p<.01)** rises while CMLS **−.055 * (p<.05)** and CMCS **−.045 * (p<.05)** drop. Same 68 samples. Same repair. Two metrics say better, two say worse.
 
-*Why:* Alignment defects are the most common defect class and the hardest to express in AST terms — there's no single "alignment" AST token, just many small layout changes. Grounding helps the model visually realign but the AST still looks different from the reference.
+*Why:* Alignment defects are the most common defect class and hardest to express in AST terms — no single "alignment" AST token, just many small layout changes. Grounding helps visual realignment but the AST still looks different from the reference.
 
-### 6. JEDI IssAcc wins — caveated
+### 8. JEDI IssAcc gains — caveated
 
-JEDI grounding drove IssAcc up +.24 to +.47 on 6 out of 8 cells (all p<.01). **But the JEDI prompt literally names the defect type ("alignment → click at 685, 308"), which partially leaks the IssAcc answer.**
+JEDI drove IssAcc +.22 to +.47 on 6 of 8 cells (all p<.01). **Caveat:** The JEDI prompt literally names the defect type ("alignment → click at 685, 308"). IssAcc measures whether the response contains those names. Partial leakage.
 
-*Why qualified:* IssAcc measures whether the model's response contains the right defect names. JEDI's prompt contains those names. Treat as a demonstration that attention-to-prompt works, not an independent accuracy gain.
-
----
-
-## Tier 2 — secondary findings (in body text, not headline numbers)
-
-### 7. 72B + JEDI visual gains
-
-Smaller than OmniParser but consistent:
-- Vue SSIM **+.012 ** (p<.001)**, CLIP +.015 * (p=.041)
-- Vanilla SSIM **+.026 * (p=.032)**, CLIP +.013 ** (p=.003)
-- React SSIM **+.011 ** (p=.009)**, MAE **−1.15 ** (p=.008)**
-
-*Why modest:* 72B already has strong internal spatial understanding; JEDI's click coordinates refine attention but don't scaffold like OmniParser's richer element list does for 7B.
-
-### 8. 72B + JEDI on React — surprise CodeScore gain
-
-**CodeScore +.063 (raw; p=.381 not significant but notable).** React 72B was already strong; JEDI pushed code-quality higher without moving CMLS.
-
-*Why possibly:* JEDI's click coords may help the model pick the right JSX component to edit, improving string-level code similarity without changing AST structure.
-
-### 9. Mark mode + OmniParser — null result (and one regression)
-
-Adding OmniParser on top of mark mode (red bboxes pre-highlighting defects) produced **no significant gains anywhere**. On **Vanilla 7B** it actually **regresses**: CMLS **−.144 * (p=.032)**, CMCS **−.128 * (p=.038)**.
-
-*Why:* Red bboxes already say "the defect is here." A long structural-text prompt on top is redundant for 72B and actively distracts 7B's limited context-following. Supports a "less is more" design for grounding prompts once a cheap localization signal is present.
-
-### 10. Mark mode alone is itself a grounding signal
-
-Informal cross-mode comparison (baseline same model, different modes):
-- **Vue 72B:** IssAcc .213 → .352 (mark alone adds ~70% relative to IssAcc)
-- **Angular 7B:** IssAcc .173 → .232
-- **Vanilla 72B:** IssAcc .369 → .318 (mark slightly hurts)
-
-*Why:* The red bboxes *are* a form of grounding — visual localization given for free in the screenshot. Explains why mark+omni doesn't double-dip.
+*Why qualified:* Can be cited as "grounding focuses model attention on named defect types" but not as a clean accuracy gain.
 
 ---
 
-## Tier 3 — findings worth mentioning only if asked
+## Tier 2 — secondary findings (body text)
 
-### 11. JEDI parse rate varies sharply by defect type
+### 9. OmniParser on 7B Angular beats JEDI on same cell (multi-metric)
+
+After full render, 7B Angular with each grounding (vs baseline):
+
+| Metric | Baseline | +omni | +jedi |
+|--------|----------|-------|-------|
+| CLIP | .486 | **.627** (+.141 **) | .595 (+.109 marginal) |
+| SSIM | .407 | **.519** (+.111 **) | .472 (+.064 marginal) |
+| CMCS | .206 | **.279** (+.073 *) | .289 (+.083 ns) |
+| IssAcc (caveat) | .173 | .244 | **.429** (+.256 **) |
+| CSR | .571 | .750 (+.18 directional) | .679 (+.11 ns) |
+
+*Why:* OmniParser's spatial element list addresses Angular's multi-file edit problem directly; JEDI's click-point scaffolding is more helpful for single-element clicks (buttons, icons) than for cross-file-coordinated repairs.
+
+### 10. Mark mode + OmniParser — null result (with one regression)
+
+Adding OmniParser on top of mark mode (red bboxes pre-highlighting defects) produced **no significant gains anywhere**. On **Vanilla 7B** it **regresses**: CMLS **−.144 * (p=.032)**, CMCS **−.128 * (p=.038)**.
+
+*Why:* Red bboxes already say "the defect is here." Long structural-text prompt on top is redundant for 72B and actively distracts 7B's limited context-following. Supports a "less is more" design for grounding prompts once a cheap localization signal is present.
+
+### 11. Mark mode alone is itself a grounding signal
+
+- Vue 72B: IssAcc .213 → .352 with mark alone
+- Angular 7B: IssAcc .173 → .232
+- Vanilla 72B: IssAcc .369 → .318 (slight hurt)
+
+*Why:* Red bboxes *are* a grounding signal. Explains why mark+omni doesn't double-dip.
+
+---
+
+## Tier 3 — only-if-asked
+
+### 12. JEDI parse rate skew by defect type
 
 77 of 170 queries parsed (45% overall). Crowding 74% / overflow 58% / occlusion 40% / alignment 34% / color-contrast 36% / text-overlap 33%.
 
-*Why:* JEDI was trained on OSWorld-G for interactable-element clicking (buttons, icons, links). Region-level defects like "this whole section has alignment issues" don't have a clickable target, so JEDI returns empty output or malformed coords.
+*Why:* JEDI was trained for interactable-element clicking, not region-level defect localization.
 
-### 12. 7B + OmniParser gains cluster on visually-complex defects
+### 13. 7B + OmniParser clustering on visually-complex defects
 
-Per-defect slice:
 - Alignment (N=63): CLIP +.065 **, SSIM +.039 **
 - Crowding (N=30): IssAcc +.196 **, CodeScore +.078 *
 - Overflow (N=17): SSIM +.106 **
@@ -105,15 +126,20 @@ Per-defect slice:
 
 ---
 
-## What didn't work / null findings
+## Grounding method comparison — when to use which
 
-- **7B + OmniParser on React** — flat across all metrics (smallest effect cell for +omni).
-- **7B + OmniParser on Vanilla** — flat; vanilla 7B baseline is already strong.
-- **72B + OmniParser on React** — flat across all metrics.
-- **7B + OmniParser on Vue** — mixed, only the CLIP/SSIM divergence is significant.
+| Condition | OmniParser | JEDI |
+|-----------|------------|------|
+| Weak small model (7B) on hard framework (Angular) | **STRONG visual + SSIM + CSR** | modest positive (not significant after render) |
+| Strong 72B on any framework except Angular | **Consistent CLIP gain** | **Consistent visual gain, smaller than omni** |
+| 72B Angular | Small CLIP gain | **Visual regression** + IssAcc leakage |
+| Framework dominated by alignment defects (React) | Safe | **Dangerous** — can blow out all metrics |
+| On top of red-bbox mark mode | Redundant / mildly harmful | Not tested on mark mode |
 
-*Why the flat cells:* These are the cells where baseline is already OK (72B React, 7B Vanilla) or where the defect types don't benefit from structural grounding (7B React is dominated by alignment, which both groundings struggle with but JEDI fails catastrophically on).
+## What didn't work
 
-## Still pending
-- JEDI angular render (biggest pending data point — AST-only already shows this is the 7B+jedi hero cell: CMLS +.142, CodeScore +.201).
-- If angular CLIP confirms, we get a **double-hero story**: both OmniParser and JEDI produce large visual gains on 7B Angular via different mechanisms.
+- 7B + omni on React, 7B + omni on Vanilla: flat
+- 72B + omni on React: flat
+- Everything on mark mode: null or regression
+
+*Why flat cells:* Baseline already OK (72B React, 7B Vanilla), or defect types don't benefit from structural grounding (React dominated by alignment where both groundings struggle, JEDI catastrophically).

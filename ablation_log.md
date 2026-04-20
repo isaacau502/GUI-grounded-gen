@@ -140,28 +140,33 @@ Column glossary:
 - **JEDI per-defect slice:** partial — only vanilla-only data at commit time (render mid-flight). Will refresh.
 - **Commit:** `db1e320`. Output at `results/per_defect.md`. Reproducer: `python scripts/per_defect_analysis.py`.
 
-### Run 06 — JEDI visual-metric render (partial, in progress)
-- **What:** Re-run DesignBench evaluator with full render on all 8 JEDI cells so CLIP/SSIM/MAE/CSR fill in.
-- **Progress (as of 11:33):**
-  - ✅ 72B+jedi vanilla, react (28/28), vue (27/27)
-  - ✅ 7B+jedi vanilla
-  - 🔄 7B+jedi react mid-render (17/28, 11 compiled)
-  - ⏳ 7B+jedi vue, then Angular × 2 (each ~70 min via per-sample `ng serve`)
-- **Partial 72B+jedi numbers landed (raw means, no significance test yet):**
+### Run 06 — JEDI visual-metric render (COMPLETE)
+- **What:** Re-ran DesignBench evaluator with full render on all 8 JEDI cells (7B/72B × 4 fw).
+- **Completion:** 2026-04-20 11:48. All cells rendered.
+- **Final JEDI findings (post-render, apples-to-apples):**
+  - **72B + JEDI visual gains on 3 frameworks:**
+    - Vue SSIM **+.012 ** (p<.001)**, CLIP **+.015 * (p=.041)**, MAE **−.251 ** (p=.008)**
+    - Vanilla CLIP **+.013 ** (p=.003)**, SSIM **+.026 * (p=.032)**
+    - React SSIM **+.011 ** (p=.009)**, MAE **−1.15 ** (p=.008)**
+  - **72B + JEDI visual REGRESSION on Angular:** CLIP **−.013 ** (p=.005)**, SSIM **−.026 * (p=.020)**. First time JEDI actively hurt visual metrics.
+  - **7B + JEDI React cross-metric blowup:** CSR 1.00 → 0.50 **, CLIP **−.309 **, SSIM **−.304 **, MAE **+52.6 **, CMLS **−.096 **, CMCS **−.084 ** (all p<.001 or <.01). Half the React samples stopped compiling. JEDI's 34% parse rate on alignment defects (React's dominant type) injects noisy coords into the prompt, and 7B follows into broken JSX.
+  - **7B + JEDI Angular mostly neutral after render:** IssAcc **+.256 ** (p=.005)** but caveated by leakage. CLIP +.109 marginal (p=.059), SSIM +.064 marginal (p=.097). AST metrics not significant. The AST-only pre-render numbers (CMLS +.142, CodeScore +.201) shrank once compile-failed samples contributed zeros.
+  - **7B + JEDI Vue:** CLIP **+.012 * (p=.044)** but SSIM **−.043 * (p=.025)** and MAE worse (p=.025). Another CLIP-vs-SSIM divergence, mirror of the 7B+omni Vue finding.
+  - **IssAcc gains persist on every cell except 7B React** (caveated leakage).
+- **Commit: pending next commit.**
 
-  | Framework | Metric | Baseline | +jedi | Δ (raw) |
-  |-----------|--------|----------|-------|---------|
-  | React | CMLS | .339 | .346 | +.007 |
-  | React | CMCS | .230 | .245 | +.015 |
-  | React | **CodeScore** | **.155** | **.218** | **+.063** |
-  | React | CLIP | .771 | .771 | 0 |
-  | Vue | CMLS | .213 | .207 | −.006 |
-  | Vue | CLIP | .796 | .808 | +.012 |
-  | Vanilla | CMLS | .532 | .524 | −.009 |
-  | Vanilla | CLIP | .791 | .804 | +.013 |
+### Run 06 / supplement — summary table of JEDI cells (post-render)
 
-- **Observation:** 72B+jedi React **CodeScore +.063** (raw) stands out — baseline 72B was already strong on React code-quality metric and JEDI pushes it higher without moving CMLS. Other 72B cells look flat-to-slightly-positive on CLIP; AST mostly flat.
-- **Angular (the main cell of interest) still pending.** This is the biggest cell in the study — 7B baseline CSR only 57%, CMLS/CMCS lowest. AST-only already showed JEDI beats OmniParser there (CodeScore +.201 **). Expecting CLIP to track — if it does, gives us a clean double-win story.
+| Cell | Best metric Δ | Worst metric Δ | Net |
+|------|--------------|----------------|-----|
+| 7B + JEDI Angular | IssAcc +.256 ** (leaky) | CSR flat | Mixed, marginal visual |
+| 7B + JEDI React | — | CSR **−.500**, CLIP **−.309** | CATASTROPHIC |
+| 7B + JEDI Vue | CLIP **+.012 *** (leakage-free) | SSIM **−.043 *** | Divergence tradeoff |
+| 7B + JEDI Vanilla | IssAcc **+.310 *** (leaky) | SSIM not sig | Mild |
+| 72B + JEDI Angular | IssAcc **+.225 *** (leaky) | **CLIP −.013 ****, SSIM −.026 *** | Visual REGRESSION |
+| 72B + JEDI React | IssAcc **+.270 *** (leaky), MAE **−1.15 *** | SSIM +.011 ** | Minor visual win |
+| 72B + JEDI Vue | SSIM **+.012 ****, IssAcc **+.441 *** | — | Consistent small win |
+| 72B + JEDI Vanilla | IssAcc **+.238 *** (leaky), CLIP **+.013 *** | — | Consistent small win |
 
 ### Run 09 — Poster-ready significance filter (α=0.05)
 - **What:** `scripts/poster_stats.py` re-evaluates every (comparison × framework × metric) cell in the existing eval JSONs and emits only p<0.05 results, sorted by p-value. McNemar exact binomial for CSR (paired binary), Wilcoxon signed-rank for continuous. Direction-aware (MAE flipped so lower-is-better counts as gain).
@@ -200,9 +205,24 @@ Column glossary:
 - **Null results documented separately** (not "failures," just where grounding didn't move the needle).
 - **Commit:** `6aa188a`.
 
-## Queued / pending (this session)
-- Run 06 extension completes: angular render for 7B+jedi and 72B+jedi (~2 hrs total).
-  - When done: refresh Run 09 poster_stats, Run 10 overview, Run 08 per-defect, and this log.
+## All runs complete. Current state:
+
+- **27 significant gains** at p<0.05 (see [results/poster_stats.md](results/poster_stats.md))
+- **12 significant regressions** at p<0.05
+- Final ranked overview: [results/results_overview.md](results/results_overview.md)
+- Per-defect slicing: [results/per_defect.md](results/per_defect.md)
+- Raw eval JSONs snapshot: [results/eval/](results/eval/)
+
+## Potential future work (not queued)
+
+| Signal | Hypothesis |
+|--------|------------|
+| Hybrid OmniParser + JEDI | They have complementary strengths on 7B Angular — combine them |
+| Filter JEDI cache to only parsed clicks | Remove the noisy alignment coords that blew up 7B React |
+| Reference-vs-broken diff grounding | Ground only the *changed* elements between broken and target |
+| Run UICrit benchmark for external validity | DesignBench alone isn't enough for a paper claim |
+| Ablate OmniParser prompt pieces (elements vs relations vs OCR) | Isolate which substrate matters on the 7B Angular hero cell |
+| Defect-type-conditioned grounding | Vary the prompt structure per `issue` field |
 
 ## Planned / future (not queued this session)
 
