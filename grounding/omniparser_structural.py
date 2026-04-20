@@ -93,7 +93,9 @@ class OmniParserStructural:
             load_florence2_model_safe,
         )
         self.caption_processor = load_florence2_processor_safe(florence_base)
-        self.caption_model = load_florence2_model_safe(florence_base)
+        self.caption_model = load_florence2_model_safe(
+            florence_base, torch_dtype=torch.float16,
+        )
         from safetensors.torch import load_file
         weights_file = os.path.join(caption_path, "model.safetensors")
         state_dict = load_file(weights_file)
@@ -102,8 +104,11 @@ class OmniParserStructural:
         )
         if missing:
             print(f"[structural] warn: {len(missing)} missing keys")
+        # Force fp16 so OmniParser fp16 weights match buffers
+        self.caption_model = self.caption_model.half()
         self.caption_model = self.caption_model.to(self.device)
         self.caption_model.eval()
+        self.caption_dtype = next(self.caption_model.parameters()).dtype
 
         # OCR
         self.ocr_reader = None
@@ -229,6 +234,7 @@ class OmniParserStructural:
         inputs = self.caption_processor(
             text="<CAPTION>", images=crop, return_tensors="pt"
         ).to(self.device)
+        inputs["pixel_values"] = inputs["pixel_values"].to(self.caption_dtype)
         with torch.no_grad():
             ids = self.caption_model.generate(
                 input_ids=inputs["input_ids"],

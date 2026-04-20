@@ -260,15 +260,27 @@ def load_florence2_processor_safe(florence_base: str = "microsoft/Florence-2-bas
     )
 
 
-def load_florence2_model_safe(florence_base: str = "microsoft/Florence-2-base"):
-    """Load Florence-2 model with the same bug workaround."""
+def load_florence2_model_safe(
+    florence_base: str = "microsoft/Florence-2-base",
+    torch_dtype=None,
+):
+    """Load Florence-2 model with the same bug workaround.
+
+    Args:
+        torch_dtype: if provided (e.g. torch.float16), model loads directly
+            in that dtype. Recommended for OmniParser which ships fp16
+            safetensors — loading in fp16 from the start avoids the mixed
+            fp16/fp32 state_dict overlay problem.
+    """
     from transformers import AutoModelForCausalLM
+
+    kwargs = {"trust_remote_code": True}
+    if torch_dtype is not None:
+        kwargs["torch_dtype"] = torch_dtype
 
     for attempt in range(3):
         try:
-            return AutoModelForCausalLM.from_pretrained(
-                florence_base, trust_remote_code=True
-            )
+            return AutoModelForCausalLM.from_pretrained(florence_base, **kwargs)
         except Exception as e:
             if not _is_known_attr_error(e):
                 raise

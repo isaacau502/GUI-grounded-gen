@@ -104,14 +104,18 @@ class OmniParser:
         # Load processor + model architecture from Florence-2 base repo.
         # The OmniParser repo is missing tokenizer/processor/remote-code files;
         # Florence-2-base has all of them and the architecture is identical.
-        # Use safe loaders that work around Florence-2's forced_bos_token_id bug.
+        # Use safe loaders that work around Florence-2's modern-transformers
+        # compatibility bugs. Load in fp16 to match OmniParser's fp16 safetensors.
+        import torch
         from grounding._florence2_patch import (
             load_florence2_processor_safe,
             load_florence2_model_safe,
         )
         print(f"[omniparser] Loading Florence-2 base from {florence_base} ...")
         self.caption_processor = load_florence2_processor_safe(florence_base)
-        self.caption_model = load_florence2_model_safe(florence_base)
+        self.caption_model = load_florence2_model_safe(
+            florence_base, torch_dtype=torch.float16,
+        )
 
         # Overwrite base weights with OmniParser's fine-tuned weights.
         weights_file = os.path.join(caption_path, "model.safetensors")
@@ -132,8 +136,12 @@ class OmniParser:
             print(f"[omniparser] warn: {len(unexpected)} unexpected keys "
                   f"(first: {unexpected[:3]})")
 
+        # Model was already loaded in fp16 so state_dict overlay is consistent.
+        # Still belt-and-suspenders .half() in case any buffers slipped.
+        self.caption_model = self.caption_model.half()
         self.caption_model = self.caption_model.to(self.device)
         self.caption_model.eval()
+        self.caption_dtype = next(self.caption_model.parameters()).dtype
         print(f"[omniparser] Ready on {self.device}.")
 
     # ------------------------------------------------------------------
@@ -234,6 +242,8 @@ class OmniParser:
         inputs = self.caption_processor(
             text=prompt, images=crop, return_tensors="pt"
         ).to(self.device)
+        # Cast pixel_values to model dtype (fp16) to avoid dtype mismatch
+        inputs["pixel_values"] = inputs["pixel_values"].to(self.caption_dtype)
 
         with torch.no_grad():
             generated_ids = self.caption_model.generate(
