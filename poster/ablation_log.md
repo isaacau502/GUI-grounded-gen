@@ -138,7 +138,7 @@ Column glossary:
   - **72B + omni on color/contrast (N=11):** SSIM **+.059** * (small N caveat).
 - **Counter-intuitive: 7B + omni on disorder (N=8) trends negative on CMLS** (−.052, not sig, small N).
 - **JEDI per-defect slice:** partial — only vanilla-only data at commit time (render mid-flight). Will refresh.
-- **Commit:** `db1e320`. Output at `poster/per_defect.md`. Reproducer: `python scripts/per_defect_analysis.py`.
+- **Commit:** `db1e320`. Output at `results/per_defect.md`. Reproducer: `python scripts/per_defect_analysis.py`.
 
 ### Run 06 — JEDI visual-metric render (COMPLETE)
 - **What:** Re-ran DesignBench evaluator with full render on all 8 JEDI cells (7B/72B × 4 fw).
@@ -170,7 +170,7 @@ Column glossary:
 
 ### Run 09 — Poster-ready significance filter (α=0.05)
 - **What:** `scripts/poster_stats.py` re-evaluates every (comparison × framework × metric) cell in the existing eval JSONs and emits only p<0.05 results, sorted by p-value. McNemar exact binomial for CSR (paired binary), Wilcoxon signed-rank for continuous. Direction-aware (MAE flipped so lower-is-better counts as gain).
-- **Output:** `poster/poster_stats.md`.
+- **Output:** `results/poster_stats.md`.
 - **Current state (will refresh once JEDI angular render lands):**
   - **23 significant gains** across the study, top by effect magnitude:
     1. 7B+omni Angular CLIP +.141 ** (p=.007)
@@ -192,7 +192,7 @@ Column glossary:
 - **Commit:** `6aa188a`.
 
 ### Run 10 — Ranked results overview for poster
-- **What:** `poster/results_overview.md`. Tier-ranked interpretation of every significant finding, each with a 1-line theorized mechanism (why it worked / failed).
+- **What:** `results/results_overview.md`. Tier-ranked interpretation of every significant finding, each with a 1-line theorized mechanism (why it worked / failed).
 - **Tier 1 (poster headline):**
   1. 7B + omni Angular hero cell
   2. 72B + omni cross-framework visual gains
@@ -207,10 +207,10 @@ Column glossary:
 
 ## All runs complete. Current state:
 
-- **27 significant gains** at p<0.05 (see [poster/poster_stats.md](poster/poster_stats.md))
+- **27 significant gains** at p<0.05 (see [results/poster_stats.md](results/poster_stats.md))
 - **12 significant regressions** at p<0.05
-- Final ranked overview: [poster/results_overview.md](poster/results_overview.md)
-- Per-defect slicing: [poster/per_defect.md](poster/per_defect.md)
+- Final ranked overview: [results/results_overview.md](results/results_overview.md)
+- Per-defect slicing: [results/per_defect.md](results/per_defect.md)
 - Raw eval JSONs snapshot: [results/eval/](results/eval/)
 
 ## Potential future work (not queued)

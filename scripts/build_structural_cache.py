@@ -54,7 +54,9 @@ def main():
             cache = json.load(f)
         print(f"Resuming from {OUT_PATH} ({len(cache)} entries).")
 
-    parser = OmniParserStructural(weights_dir=OMNI_WEIGHTS)
+    # Prefer MPS on Apple Silicon (3-5x faster than CPU for Florence-2).
+    device = os.environ.get("DEVICE", "mps")
+    parser = OmniParserStructural(weights_dir=OMNI_WEIGHTS, device=device)
 
     samples = list(iter_samples())
     print(f"Processing {len(samples)} samples.")

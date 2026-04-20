@@ -120,7 +120,7 @@ def run_comparison(label, baseline_key, variant_key, mode, lines):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--output", default="results/per_defect.md")
+    ap.add_argument("--output", default="poster/per_defect.md")
     args = ap.parse_args()
 
     lines = ["# Per-defect-type slicing of DesignBench grounding ablation", ""]

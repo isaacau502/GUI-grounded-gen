@@ -28,7 +28,7 @@
 
 **Baseline state:** DesignBench's own baseline (Qwen2.5-VL without grounding) was reproduced from Xie et al., matching paper within 5% on most cells.
 
-## Key findings (from `results/RESULTS.md`)
+## Key findings (from `poster/RESULTS.md`)
 
 **Headline (in order of poster priority):**
 
@@ -57,10 +57,10 @@
 
 ## Artifacts available in the repo
 
-- `results/RESULTS.md` — collated one-stop doc (read this first)
-- `results/results_overview.md` — tier-ranked with mechanisms
-- `results/poster_stats.md` — full α=0.05 significance table
-- `results/per_defect.md` — per-defect slicing
+- `poster/RESULTS.md` — collated one-stop doc (read this first)
+- `poster/results_overview.md` — tier-ranked with mechanisms
+- `poster/poster_stats.md` — full α=0.05 significance table
+- `poster/per_defect.md` — per-defect slicing
 - `ablation_log.md` — run-by-run history
 - `grounding/` — the three grounding wrappers (omniparser, omniparser_structural, jedi)
 - `scripts/` — runners, stats, analysis

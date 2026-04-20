@@ -153,7 +153,7 @@ def fmt_val(v, metric):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--alpha", type=float, default=ALPHA)
-    ap.add_argument("--output", default="results/poster_stats.md")
+    ap.add_argument("--output", default="poster/poster_stats.md")
     args = ap.parse_args()
 
     rows = gather()
