@@ -1385,5 +1385,67 @@
       "compile_success": true,
       "parse_error": false
     }
+  },
+  "qwen2.5-vl-72b-instruct+jedi": {
+    "1": {
+      "MAE": 70.80503560799319,
+      "clip_similarity": 0.8783082962036133,
+      "structure_similarity": 0.9280669295353023,
+      "code_score": 0.6,
+      "issue accuracy": 1.0,
+      "ast_code_op_score": 1.0,
+      "ast_code_content_score": 1.0,
+      "ast_code_content_weighted_score": 1.0,
+      "compile_success": true,
+      "parse_error": false
+    },
+    "2": {
+      "MAE": 84.32509209857723,
+      "clip_similarity": 0.8031283617019653,
+      "structure_similarity": 0.7448627612955864,
+      "code_score": 0.5,
+      "issue accuracy": 1.0,
+      "ast_code_op_score": 0.5263,
+      "ast_code_content_score": 0.75,
+      "ast_code_content_weighted_score": 0.394725,
+      "compile_success": true,
+      "parse_error": false
+    },
+    "3": {
+      "MAE": 79.91595716411565,
+      "clip_similarity": 0.9232996106147766,
+      "structure_similarity": 0.8412782205226923,
+      "code_score": 0.6333333333333333,
+      "issue accuracy": 1.0,
+      "ast_code_op_score": 0.86365,
+      "ast_code_content_score": 0.91115,
+      "ast_code_content_weighted_score": 0.7869146975000001,
+      "compile_success": true,
+      "parse_error": false
+    },
+    "4": {
+      "MAE": 86.13598221801347,
+      "clip_similarity": 0.8392376899719238,
+      "structure_similarity": 0.9158177550628671,
+      "code_score": 0.6875,
+      "issue accuracy": 0.3333333333333333,
+      "ast_code_op_score": 0.8,
+      "ast_code_content_score": 0.94615,
+      "ast_code_content_weighted_score": 0.75692,
+      "compile_success": true,
+      "parse_error": false
+    },
+    "5": {
+      "MAE": 88.79991064882698,
+      "clip_similarity": 0.7673808932304382,
+      "structure_similarity": 0.7211992063041289,
+      "code_score": 0.5,
+      "issue accuracy": 0.0,
+      "ast_code_op_score": 0.8,
+      "ast_code_content_score": 0.825,
+      "ast_code_content_weighted_score": 0.66,
+      "compile_success": true,
+      "parse_error": false
+    }
   }
 }
