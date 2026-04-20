@@ -82,14 +82,11 @@ class OmniParserList:
             )
 
         print(f"[omniparser2] Loading Florence-2 base from {florence_base} ...")
-        import torch
-        from grounding._florence2_patch import (
-            load_florence2_processor_safe,
-            load_florence2_model_safe,
+        self.caption_processor = AutoProcessor.from_pretrained(
+            florence_base, trust_remote_code=True
         )
-        self.caption_processor = load_florence2_processor_safe(florence_base)
-        self.caption_model = load_florence2_model_safe(
-            florence_base, torch_dtype=torch.float16,
+        self.caption_model = AutoModelForCausalLM.from_pretrained(
+            florence_base, trust_remote_code=True
         )
 
         weights_file = os.path.join(caption_path, "model.safetensors")
@@ -108,12 +105,9 @@ class OmniParserList:
             print(f"[omniparser2] warn: {len(unexpected)} unexpected keys "
                   f"(first: {unexpected[:3]})")
 
-        # Force fp16 so OmniParser fp16 weights match model buffers
-        self.caption_model = self.caption_model.half()
         self.caption_model = self.caption_model.to(self.device)
         self.caption_model.eval()
-        self.caption_dtype = next(self.caption_model.parameters()).dtype
-        print(f"[omniparser2] Ready on {self.device} (dtype={self.caption_dtype}).")
+        print(f"[omniparser2] Ready on {self.device}.")
 
     # ------------------------------------------------------------------
     # Public API
@@ -209,21 +203,16 @@ class OmniParserList:
 
     def _caption_crop(self, crop) -> str:
         import torch
-        from PIL import Image as _Image
         prompt = "<CAPTION>"
-        # Florence-2 requires square feature maps (assertion in _encode_image)
-        crop = crop.resize((768, 768), _Image.BICUBIC)
         inputs = self.caption_processor(
             text=prompt, images=crop, return_tensors="pt"
         ).to(self.device)
-        inputs["pixel_values"] = inputs["pixel_values"].to(self.caption_dtype)
         with torch.no_grad():
             generated_ids = self.caption_model.generate(
                 input_ids=inputs["input_ids"],
                 pixel_values=inputs["pixel_values"],
                 max_new_tokens=64,
                 num_beams=3,
-                use_cache=False,
             )
         caption = self.caption_processor.batch_decode(
             generated_ids, skip_special_tokens=False
