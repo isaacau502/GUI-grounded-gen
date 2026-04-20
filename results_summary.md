@@ -4,11 +4,27 @@
 
 **Run date:** 2026-04-20. Same temp=0 seed=42 as baseline.
 
-## Headline
+## Headline (revised after significance testing)
 
-**Grounding helps the small model and hurts the big one.**
+**Grounding significantly improves 7B on Angular repair. Everything else is statistical noise at N=27–28.**
 
-7B benefits from explicit element lists + spatial relations; its own vision+spatial reasoning is weaker, so the grounding acts as scaffolding. 72B already has good internal spatial understanding, and the extra prompt becomes noise that pulls it off a stronger baseline.
+Wilcoxon signed-rank paired test + bootstrap 95% CI on mean paired difference (`scripts/stats_test.py`).
+
+Significant 7B gains (p < 0.05):
+- Angular CMLS **+.138** (p=0.004 **)
+- Angular CMCS **+.094** (p=0.005 **)
+- Angular IssAcc **+.158** (p=0.007 **)
+- Angular CodeScore **+.148** (p=0.026 *)
+
+Marginal 7B signals (p < 0.10), two-tailed:
+- Vue CMLS −.037 (p=0.079), Vue CMCS −.046 (p=0.090) — marginal DROP.
+- Vue IssAcc +.062 (p=0.074) — marginal gain.
+- Vue pattern is a tradeoff: grounding helps the model name the defect but the code rewrite diverges from the reference. Per baseline memo: "CMLS/CMCS penalize correct rewrites" — consistent but unconfirmed visually.
+
+Everything else is statistically indistinguishable from noise, including the 72B regressions I flagged in the first draft. **No 72B metric change crosses p<0.10.** The "grounding hurts big model" story does NOT hold up at this N.
+
+## What's real, one line:
+> **Angular 7B repair is the one regime where OmniParser structural grounding gives a large, statistically reliable win — roughly closing half the 7B → 72B gap on that framework's AST-similarity metrics.**
 
 ## Delta table (all N=27–28)
 
@@ -48,15 +64,17 @@
 | Vanilla   | CMCS       | .394     | .403   | +.009      |
 | Vanilla   | IssAcc     | .345     | .399   | **+.054**  |
 
-## Discussion
+## Discussion (after significance)
 
-1. **Clear size-dependent effect.** The 7B model gains across every IssAcc column (grounding helps it *find* the defect), and on Angular specifically gets a large boost on CMLS/CMCS (correctness of the produced repair). 72B drops on nearly every structural metric.
+1. **The Angular 7B result is robust.** Four metrics move significantly in the same direction (CMLS p=.004, CMCS p=.005, IssAcc p=.007, CodeScore p=.026). 95% CI on paired difference for CMLS is [+.020, +.251] — doesn't cross zero. At N=28 with 4-metric consistency, this is believable.
 
-2. **The biggest 7B win is Angular CMLS +.139.** Angular repair is where 7B was most compile-fragile (.30 vs 72B's .63). Grounding closes almost half the gap. Concrete explanation candidate: Angular's split of template + TS makes "which element is broken" underspecified from just the screenshot — explicit bbox → DOM position helps 7B focus.
+2. **Why Angular specifically?** Angular repair requires edits across template + TypeScript files. "Which element has the defect" is more ambiguous from a screenshot alone — explicit bbox→DOM position and OCR text give 7B scaffolding it otherwise lacks. 72B already handles this internally, so no gain.
 
-3. **72B Vanilla is the worst regression (−.088 CMLS, −.081 CMCS).** Baseline 72B on Vanilla was strong; the grounding block introduces long text that apparently dilutes attention. Memo predicted this for wrong-location edits — empirically the opposite: 72B was already making the right edits.
+3. **Eyeball-significant ≠ statistically significant.** In the first draft I confidently reported "72B Vanilla CMLS −.088, CMCS −.081" as a real regression. Paired Wilcoxon p=.149 / .142. 95% CI crosses zero. Mean drop is real on these 28 samples, but I can't rule out noise. Same story for 72B Angular, 72B React. The "grounding hurts 72B" narrative is not supported by these N.
 
-4. **IssAcc vs CMLS/CMCS split.** On Vue 7B and React 7B, IssAcc goes up but CMLS/CMCS goes down. That means grounding helps the model name the defect correctly, but the code it writes to fix it is structurally different from the reference. Per baseline memo: "CMLS/CMCS penalize correct rewrites." So IssAcc gains here are real signal, CMLS losses may be penalty-for-diversity, not actual regression. Visual confirmation (CLIP) would disambiguate — missing from AST-only runs.
+4. **Vue 7B tradeoff is marginal, not clear.** CMLS/CMCS drop trend (p≈.08–.09) and IssAcc rise trend (p≈.07) are on the threshold. Visual (CLIP) would be the tiebreaker — we have it for Vue 72B only, where CLIP went +.012 on a non-significant sample.
+
+5. **What to do about small-N.** For a real paper claim you'd want N≥100/cell or at minimum bootstrap CIs that don't cross zero. Angular 7B gets there. Others need either more samples (unavailable — DesignBench is fixed size) or different benchmarks to scale up.
 
 ## Caveats + missing
 
@@ -70,7 +88,8 @@
 
 - Structural cache: `grounding_structural_cache.json` (111 samples, 0 errors, MPS ~15s/sample)
 - Grounded repair outputs: `external/DesignBench/results/repair/{fw}-{fw}/qwen2.5-vl-{7b,72b}-instruct+omni/`
-- Per-framework eval: `external/DesignBench/code/evaluator/res/DesignRepair/{react,vue,angular,vanilla}_both.json`
+- Per-framework eval: `results/eval/{react,vue,angular,vanilla}_both.json` (snapshot; originals live in gitignored `external/DesignBench/code/evaluator/res/DesignRepair/`)
+- Significance tests: `scripts/stats_test.py` (Wilcoxon signed-rank + bootstrap CI)
 - Reproduction: `bash scripts/_orchestrate_ablation.sh` (assumes cache exists; cache-builder = `scripts/build_structural_cache.py`)
 
 ## Next steps
