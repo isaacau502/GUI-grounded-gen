@@ -34,7 +34,7 @@ GUI-grounding models (OmniParser, JEDI) were trained to localize exactly this. C
 ## Panel 2 — Approach
 **Two grounding signals, one repair model.**
 
-- **OmniParser structural** → element bboxes, captions, OCR text, and geometric relations injected as a text block into the prompt.
+- **OmniParser v2** → element bboxes, captions, OCR text, and geometric relations injected as a text block into the prompt.
 - **JEDI click-points** → per-defect `(x, y)` coordinates from JEDI-7B, injected as "click at X, Y" natural language.
 - Both compared to the ungrounded Qwen2.5-VL baseline across **two model sizes** (7B, 72B) and **four web frameworks** (React, Vue, Angular, Vanilla).
 

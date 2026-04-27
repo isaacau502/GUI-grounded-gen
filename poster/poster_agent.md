@@ -14,7 +14,7 @@
 
 **Core idea:** inject GUI-grounding model outputs into the prompt of a vision-language code repair model (Qwen2.5-VL-7B and 72B). Two grounding signals tested:
 
-1. **OmniParser structural** — YOLO bounding boxes + Florence-2 captions + EasyOCR text + pairwise geometric relations + pixel statistics. Big structural block of text describing the UI.
+1. **OmniParser v2** — YOLO bounding boxes + Florence-2 captions + EasyOCR text + pairwise geometric relations + pixel statistics. Big block of text describing the UI.
 2. **JEDI-7B-1080p** — trained click-point localization. For each defect in a sample, JEDI outputs `pyautogui.click(x, y)` coordinates which are injected as natural language into the prompt.
 
 **Setup:** 111 DesignBench repair samples across React (28), Vue (27), Angular (28), Vanilla (28). Qwen2.5-VL via Dashscope international. Temperature 0, seed 42. Two DesignBench modes: `both` (code + original screenshot), `mark` (code + screenshot with defects pre-highlighted in red bboxes).
@@ -113,7 +113,7 @@ For each section, write:
 1. **Motivation / Question** — Why does GUI grounding matter for code repair? Two sentences max. Name the gap: VLM-based UI repair struggles with "which element is broken" from a screenshot alone; GUI-grounding models output exactly that localization. Can we plug them in?
 
 2. **Approach** — Bullet list. 3 rows:
-   - *OmniParser structural*: element list + OCR text + geometric relations injected as text.
+   - *OmniParser v2*: element list + OCR text + geometric relations injected as text.
    - *JEDI click coords*: per-defect (x, y) click point from JEDI-7B-1080p injected as "click at X, Y."
    - Both injected into Qwen2.5-VL's repair prompt; compare to ungrounded baseline.
 

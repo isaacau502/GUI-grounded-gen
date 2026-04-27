@@ -41,32 +41,27 @@ Reference list of experiments we have NOT run. Sorted by priority-per-effort. Co
   - **Elements-only** (drop OCR + relations + pixel stats)
   - **Relations-only** (drop elements + OCR + pixel stats)
   - **OCR-only** (drop elements + relations + pixel stats)
-- **Why:** Explains *what about structural grounding* drives the 7B Angular win. The prompt block is dense; maybe only one substrate matters.
-- **Work:** Modify the structural prompt_block formatter; rerun 3 times.
+- **Why:** Explains *what about the OmniParser v2 prompt* drives the 7B Angular win. The prompt block is dense; maybe only one substrate matters.
+- **Work:** Modify the OmniParser v2 prompt_block formatter; rerun 3 times.
 - **Cost:** ~3 hrs total (3 × ~1 hr per variant).
 
 ### 7. OmniParser v1 (keyword-match → single click point)
-- **Why:** Already built in `grounding/omniparser.py` but never tested. Returns a single click point per issue via keyword matching on captions. Cheaper prompt than structural.
+- **Why:** Already built in `grounding/omniparser.py` but never tested. Returns a single click point per issue via keyword matching on captions. Cheaper prompt than the v2 block.
 - **Work:** Write cache builder + runner.
 - **Cost:** ~2 hrs.
 
-### 8. OmniParser v2 (elements + captions only, no relations)
-- **Why:** Already in `grounding/omniparser2.py`. Middle ground between v1 (single point) and structural (full block). Relations might be the load-bearing piece — v2 tests that.
-- **Work:** Same as v1 — write cache builder + runner.
-- **Cost:** ~2 hrs.
-
-### 9. JEDI × mark mode
+### 8. JEDI × mark mode
 - **Why:** Completes the signal × mode matrix (8 missing cells).
 - **Work:** Runner already supports `--mode mark`. Just flip the flag and re-eval.
 - **Cost:** ~30 min gen + ~1 hr optional render.
 - **Priority:** Low — mark+omni was already mostly null, mark+jedi likely similar.
 
-### 10. Defect-type-conditioned grounding prompts
+### 9. Defect-type-conditioned grounding prompts
 - **Why:** Vary the grounding block format per `issue` type. Example: `text_overlap` → emphasize OCR bboxes; `alignment` → emphasize aligned_* relations; `color_contrast` → emphasize pixel stats.
 - **Work:** New prompt formatter dispatcher on issue type.
 - **Cost:** ~3 hrs.
 
-### 11. Baseline mark vs grounding both (cross-mode comparison)
+### 10. Baseline mark vs grounding both (cross-mode comparison)
 - **Why:** Honest comparison of "our grounding vs. DesignBench's built-in red-bbox localization." Currently we compare grounding vs. no grounding in same mode; comparing across modes tests whether our grounding has value beyond free bboxes.
 - **Work:** Analysis only — no new generation. Just pair mark-baseline samples against both-+omni samples.
 - **Cost:** ~1 hr analysis.
@@ -74,44 +69,44 @@ Reference list of experiments we have NOT run. Sorted by priority-per-effort. Co
 
 ## Tier 3 — new dimensions (require full re-ablation)
 
-### 12. 3B model scale
+### 11. 3B model scale
 - **Why:** Strengthens "grounding helps small models more" claim. If 3B benefits even more than 7B, the size-dependent effect is a clean trend.
 - **Cost:** ~4 hrs (full gen + eval + render).
 
-### 13. Cross-model critic-repair (72B critic + 7B repair)
+### 12. Cross-model critic-repair (72B critic + 7B repair)
 - **Why:** Tests whether decomposing "diagnosis" (strong model) + "fix" (cheap model) outperforms a single strong model. Practical deployment angle.
 - **Work:** 3-stage runner: 72B produces `[ISSUES]`, 7B receives issues + produces `[CODE]`.
 - **Cost:** ~4 hrs.
 
-### 14. Same-model 3-stage critic-repair (Qwen critiques, then Qwen repairs)
+### 13. Same-model 3-stage critic-repair (Qwen critiques, then Qwen repairs)
 - **Why:** Tests whether forcing the model to commit to a diagnosis before editing improves repair quality. Independent of model-size decomposition.
 - **Cost:** ~3 hrs.
 
-### 15. Fine-tuning the grounding model
+### 14. Fine-tuning the grounding model
 - **Why:** Approach 2 from the original proposal. Fine-tune JEDI or OmniParser on UI-defect-aware grounding data. Bridges the gap between navigation-trained grounding and defect-detection.
 - **Work:** Need defect grounding dataset. Neither exists publicly; would have to synthesize from DesignBench.
 - **Cost:** multi-day.
 - **Risk:** High overfitting risk (same benchmark for train + test).
 
-### 16. Fine-tuning Qwen with grounding signal
+### 15. Fine-tuning Qwen with grounding signal
 - **Why:** Original Approach 2. Train Qwen to natively consume OmniParser/JEDI outputs rather than stuffing them in the prompt.
 - **Work:** LoRA fine-tune on grounded-repair pairs.
 - **Cost:** multi-day. Needs GPU + training data.
 
-### 17. RAG approach
+### 16. RAG approach
 - **Why:** Approach 3 from the original proposal. Retrieve design guidelines (Material Design, etc.) at inference time to augment Qwen's repair context.
 - **Work:** Build guideline index, add retrieval to the runner.
 - **Cost:** ~1-2 days.
 
-### 18. Second benchmark (UICrit / WebSight)
+### 17. Second benchmark (UICrit / WebSight)
 - **Why:** External validity. Only DesignBench tested so far. Generalization claim requires more than one benchmark.
 - **Cost:** Full ablation re-run. Multi-day.
 
-### 19. Set-of-marks prompting
+### 18. Set-of-marks prompting
 - **Why:** Alternative to grounding. Overlay numbered visual markers on the screenshot as lightweight spatial anchors.
 - **Cost:** ~2 hrs.
 
-### 20. Visual-diff guidance
+### 19. Visual-diff guidance
 - **Why:** Fallback from original proposal. Render the broken output, compute pixel-level diffs against reference, feed diff regions to Qwen as hints. Different angle on the visual-to-code gap.
 - **Cost:** ~3 hrs.
 

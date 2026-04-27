@@ -4,47 +4,53 @@ Running log of every ablation configuration we try on the DesignBench repair tas
 
 ## Headline (current state)
 
-**Three clean wins, two nulls, one regression, rest in render queue.**
+**All runs complete: 27 significant gains, 12 significant regressions, 12 marginals across 149 cells (α=0.05, paired Wilcoxon for continuous, McNemar exact binomial for CSR). All numbers post-render, apples-to-apples with the DesignBench baseline (compile-fails contribute zeros to AST and visual metrics).**
 
-### Win 1 — 7B + OmniParser on Angular (biggest single cell)
+### Win 1 — 7B + OmniParser on Angular (hero cell)
 - CLIP **+.141** ** (p=.007), SSIM **+.111** ** (p=.002), CMCS **+.073** * (p=.048)
-- CSR .57 → .75 (directional +.18, 6 extra samples compile)
-- Largest effect in the whole study.
+- CSR .57 → .75 (directional +.18, McNemar p=.125, 6 extra samples compile)
+- Largest single effect in the study.
 
-### Win 2 — 7B + JEDI on Angular (AST-level beats OmniParser on same cell)
-- CMLS **+.142** * (p=.022), CMCS **+.118** * (p=.019), **CodeScore +.201** ** (p=.007)
-- Surpasses +omni on code metrics. CLIP pending render.
-
-### Win 3 — 72B + OmniParser visual improvement, 3 of 4 frameworks
+### Win 2 — 72B + OmniParser visual gains, 3 of 4 frameworks
 - Vue CLIP **+.012** ** (p=.002)
 - Angular CLIP **+.009** * (p=.045), SSIM **+.003** * (p=.026)
 - Vanilla CLIP **+.018** ** (p=.002), SSIM **+.019** ** (p=.002), MAE **−.337** * (p=.030)
 - CMLS/CMCS trend mildly negative (not significant). *CMLS penalizes correct rewrites* hypothesis validated.
 
-### Regression — 7B + JEDI on React
-- CMLS **−.096** ** (p=.006), CMCS **−.085** ** (p=.002)
-- JEDI's noisy alignment-defect coords mislead 7B on React. Only cell with a significant regression.
+### Win 3 — 72B + JEDI visual gains, 3 non-Angular frameworks
+- Vue SSIM **+.012** ** (p<.001), CLIP **+.015** * (p=.041), MAE **−.251** ** (p=.008)
+- Vanilla CLIP **+.013** ** (p=.003), SSIM **+.026** * (p=.032)
+- React SSIM **+.011** ** (p=.009), MAE **−1.15** ** (p=.008)
+- Smaller than +omni on 7B because 72B already has spatial understanding — grounding refines rather than scaffolds.
+
+### Regression — 7B + JEDI on React (catastrophic, all metrics)
+- CSR 1.00 → 0.50 ** (p<.001), CLIP **−.309** ** (p<.001), SSIM **−.304** ** (p<.001)
+- CMLS **−.096** ** (p=.006), CMCS **−.084** ** (p=.006)
+- Half the React samples stopped compiling. JEDI's 34% parse rate on alignment defects (React's dominant defect type) injects noisy/empty coords; 7B follows into broken JSX.
+
+### Mixed-visual — 72B + JEDI on Angular
+- CLIP **−.013** ** (p=.005) and SSIM **−.026** * (p=.020) regress, but MAE **−3.04** ** (p=.005) improves. Two visual metrics down, one up on the same cell.
+- 72B Angular baseline already strongest in study (CMLS .63, CLIP .82, CSR .96); JEDI's click coords likely displace useful attention.
 
 ### Null — Mark mode + OmniParser
 - Red bboxes alone (mark mode baseline) already capture most of the "look here" grounding benefit. Adding structural text on top is mostly redundant.
 - Only significant effect: Vanilla 7B+omni (mark) CMLS **−.144** * (p=.032), CMCS **−.128** * (p=.038) — grounding *hurts* here.
-- Across-framework note: mark mode itself boosts IssAcc for some cells (Vue 72B mark IssAcc .213 → .352 vs both mode).
+- Mark-mode eval is AST-only (CLIP/SSIM/MAE not rendered for mark cells).
+- Mark mode is itself a grounding signal: Vue 72B IssAcc .213 → .352, Angular 7B .173 → .232; Vanilla 72B .369 → .318 (slight hurt).
 
 ### JEDI IssAcc caveat
-- JEDI +24% to +47% IssAcc on every cell, all p<.001. **But the JEDI prompt literally names the defect type.** Treat as confounded by label leakage. Don't report on the poster as a clean win.
+- JEDI +.22 to +.47 IssAcc on every cell except 7B React, all p<.01. **But the JEDI prompt literally names the defect type.** Treat as confounded by label leakage. Don't report as a clean win. Visual (CLIP/SSIM/MAE) and AST (CMLS/CMCS) metrics are unaffected.
 
 ### Per-defect-type cross-framework slice (Run 08)
 - Validates framework-level findings + adds within-defect texture.
 - **7B + omni alignment (N=63):** CLIP **+.065** **, SSIM **+.039** ** — alignment benefits visually
 - **7B + omni crowding (N=30):** IssAcc **+.196** **, CodeScore **+.078** *
 - **7B + omni overflow (N=17):** SSIM **+.106** **
+- **7B + omni occlusion (N=29):** CLIP **+.095** *, SSIM **+.082** *
 - **72B + omni alignment (N=68):** CLIP **+.007** ** rises while CMLS **−.055** *, CMCS **−.045** * drop — cleanest single illustration of the CMLS-vs-CLIP divergence (N=68, both tails significant).
 - **72B + omni crowding (N=31):** CLIP **+.035** **
 - **72B + omni overflow (N=19):** CLIP **+.064** **
-
-### Pending
-- JEDI visual-metric render (full CLIP/SSIM/MAE for all 8 JEDI cells) — in progress, ~2 hrs for angular, others fast.
-- Per-defect refresh for JEDI once render done.
+- **72B + omni color/contrast (N=11):** SSIM **+.059** *
 
 
 **Setup fixed across rows:** DesignBench repair, 111 samples (R=28, V=27, A=28, Vanilla=28), temp=0, seed=42, API via Dashscope international.
@@ -60,8 +66,8 @@ Column glossary:
 
 ## Runs completed
 
-### Run 01 — OmniParser **structural** × `both` mode × 7B
-- **Signal:** structural block (YOLO bboxes + Florence-2 captions + EasyOCR text + pairwise geometric relations + pixel stats)
+### Run 01 — OmniParser v2 × `both` mode × 7B
+- **Signal:** OmniParser v2 prompt block (YOLO bboxes + Florence-2 captions + EasyOCR text + pairwise geometric relations + pixel stats)
 - **Scope:** react, vue, angular, vanilla — full render pass complete
 - **Finding (post-render, apples-to-apples with baseline methodology):**
   - **Angular: LARGE WIN**
@@ -78,7 +84,7 @@ Column glossary:
 - **Commits:** `5ec2828` (harness), `eab17e8` (eval), `e2eb9f0` (stats), `3531c38` (render fill)
 - **Cache:** `grounding_structural_cache.json` (111 entries, MPS ~15s/sample)
 
-### Run 02 — OmniParser **structural** × `both` mode × 72B
+### Run 02 — OmniParser v2 × `both` mode × 72B
 - **Signal:** same as Run 01
 - **Scope:** react, vue, angular, vanilla
 - **Metrics captured:** AST-only first, then fully re-rendered → CLIP/SSIM/MAE/CSR added
@@ -113,7 +119,7 @@ Column glossary:
 
 ### Run 07 — `mark` mode ablation (baseline + `+omni`)
 - **What:** DesignBench `mark` mode swaps the screenshot for one with defects pre-highlighted in red bboxes. Ran baseline mark vs grounded+mark, both sizes × 4 fw.
-- **Hypothesis:** red bboxes *are* a grounding signal. Question: does structural-text grounding add info beyond "look here"?
+- **Hypothesis:** red bboxes *are* a grounding signal. Question: does the OmniParser v2 text block add info beyond "look here"?
 - **Answer: mostly no, and sometimes hurts.**
   - **7B + omni (mark):** Vue CMCS marginal regression (−.042, p=.086). **Vanilla significantly regresses: CMLS −.144 * (p=.032), CMCS −.128 * (p=.038).** Angular + React: noise.
   - **72B + omni (mark):** Vue CMCS marginal regression (−.027, p=.052). All other cells: noise. No wins anywhere.
@@ -121,7 +127,7 @@ Column glossary:
   - Vue 72B IssAcc .213 → .352 — red bboxes alone are a big IssAcc boost for 72B Vue.
   - Angular 7B IssAcc .173 → .232 — smaller but directional.
   - Vanilla 72B IssAcc .369 → .318 — mark slightly *hurts* for 72B Vanilla.
-- **Takeaway:** Mark is itself a grounding signal; for some cells (Vue 72B), it's a bigger lift than adding OmniParser text on top of both-mode. For Vanilla 7B specifically, structural text on top of red bboxes is counterproductive. Overall **mark + omni is not the right stack**; future work might target "mark + JEDI click refinement" or "mark-only with modality ablation."
+- **Takeaway:** Mark is itself a grounding signal; for some cells (Vue 72B), it's a bigger lift than adding OmniParser text on top of both-mode. For Vanilla 7B specifically, OmniParser v2 text on top of red bboxes is counterproductive. Overall **mark + omni is not the right stack**; future work might target "mark + JEDI click refinement" or "mark-only with modality ablation."
 - **Commit:** `3531c38` (harness already ran mark baseline previously); mark eval JSONs at `results/eval/{fw}_mark.json`.
 
 ### Run 08 — Per-defect-type slicing of all existing results
@@ -163,7 +169,7 @@ Column glossary:
 | 7B + JEDI React | — | CSR **−.500**, CLIP **−.309** | CATASTROPHIC |
 | 7B + JEDI Vue | CLIP **+.012 *** (leakage-free) | SSIM **−.043 *** | Divergence tradeoff |
 | 7B + JEDI Vanilla | IssAcc **+.310 *** (leaky) | SSIM not sig | Mild |
-| 72B + JEDI Angular | IssAcc **+.225 *** (leaky) | **CLIP −.013 ****, SSIM −.026 *** | Visual REGRESSION |
+| 72B + JEDI Angular | IssAcc **+.225 *** (leaky), MAE **−3.04 *** | **CLIP −.013 ****, SSIM −.026 *** | Mixed-visual (CLIP/SSIM down, MAE up) |
 | 72B + JEDI React | IssAcc **+.270 *** (leaky), MAE **−1.15 *** | SSIM +.011 ** | Minor visual win |
 | 72B + JEDI Vue | SSIM **+.012 ****, IssAcc **+.441 *** | — | Consistent small win |
 | 72B + JEDI Vanilla | IssAcc **+.238 *** (leaky), CLIP **+.013 *** | — | Consistent small win |
@@ -232,7 +238,6 @@ Column glossary:
 | **Reference-vs-broken diff** grounding | DesignBench gives both the broken + target screenshots; grounding on the *element diff* is more targeted than full image | One new cache builder + one run |
 | Defect-type-conditioned block | Vary grounding text by `config["issue"]` (e.g. text_overlap → emphasize OCR; alignment → emphasize aligned_* relations) | New prompt formatter, one run |
 | OmniParser v1 (keyword → single point) | Element list may overwhelm model; single-point attention may be cleaner for click-like defects | Wrapper exists, cache + runner script needed |
-| OmniParser v2 (elements + captions only, no relations) | Same as trimmed-structural-elements-only | Wrapper exists |
 | Hybrid OmniParser + JEDI | Orthogonal signals: OmniParser = element list, JEDI = prioritized "look here first" | Needs both caches |
 | Per-defect-type slicing of existing results | May reveal grounding helps text_overlap/alignment/crowding and fails color_contrast | Zero compute; groupby eval JSONs |
 
@@ -243,4 +248,5 @@ Column glossary:
 - Significance testing: Wilcoxon signed-rank paired, two-sided. One-sided halves p where we have a preregistered directional hypothesis (e.g., grounding → improves IssAcc).
 - N=27–28 per cell is small. Deltas under ~.04 are inside noise absent specific predictions.
 - CMLS/CMCS are AST-similarity-to-reference metrics — they penalize correct rewrites that use different AST structure. CLIP (visual similarity to target) is the tiebreaker when CMLS drops + IssAcc rises.
+- **AST + CSR coupling.** DesignBench zeros all metrics (CMLS, CMCS, CodeScore, IssAcc) when a sample fails to compile. Paired AST-metric gains on cells with low baseline CSR partially reflect compile-rate improvements — when a previously-uncompilable variant sample now compiles, it shifts from contributing 0 to its real AST score. This affects the 7B+omni Angular hero (baseline CSR .57 → variant .75) and inflates the CMCS +.073 gain modestly. CLIP, SSIM, and MAE are unaffected (computed against rendered output).
 - Rendered `.png` + `.html` are separate from generation output; the baseline eval runs these via react/vue/angular dev servers + selenium. Angular is ~2.5 min per sample (per-sample `ng serve`).

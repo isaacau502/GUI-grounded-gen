@@ -1,6 +1,9 @@
-# DesignBench Repair Ablation — Baseline vs +Structural OmniParser Grounding
+# DesignBench Repair Ablation — Baseline vs +OmniParser v2 Grounding
 
-**Task:** DesignBench UI repair. Inject OmniParser structural grounding (YOLO + EasyOCR + Florence-2 captions + pairwise geometric relations + pixel stats) into the Qwen2.5-VL repair prompt. Compare to the ungrounded baseline on same 111 samples (27–28 per framework).
+> **SNAPSHOT 2026-04-20 — OmniParser-only intermediate state, before JEDI and mark-mode ablations completed.**
+> Canonical results: [RESULTS.md](RESULTS.md). This file is preserved for the unique caveats it carries (Vanilla CSR detection patch, CSR-zeroing-AST artifact discussion) that are not yet migrated into the canonical doc.
+
+**Task:** DesignBench UI repair. Inject OmniParser v2 grounding (YOLO + EasyOCR + Florence-2 captions + pairwise geometric relations + pixel stats) into the Qwen2.5-VL repair prompt. Compare to the ungrounded baseline on same 111 samples (27–28 per framework).
 
 **Run date:** 2026-04-20. Same temp=0 seed=42 as baseline. Full render pass with CLIP/SSIM/MAE/CSR computed for every cell.
 

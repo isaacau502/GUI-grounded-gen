@@ -166,7 +166,7 @@ OmniParser also helps the stronger 72B. Gains are smaller but significant on 3 o
 *⚠ = IssAcc values partially confounded by label leakage (see Caveat, §12).*
 
 **Takeaway (28pt italic):**
-JEDI's click-point signal also helps the 72B on three non-Angular frameworks. On 72B Angular, where the baseline is already strongest in the whole study (CLIP .821, SSIM .691, CSR .96), JEDI mildly hurts visual metrics, likely because the click points displace attention the model was already using successfully.
+JEDI's click-point signal also helps the 72B on three non-Angular frameworks. On 72B Angular, where the baseline is already strongest in the whole study (CLIP .821, SSIM .691, CSR .96), the visual story is mixed: CLIP and SSIM regress, MAE improves, on the same cell. The click points likely displace attention the model was already using successfully on the embedding/structural metrics, while pixel-level MAE still registers a small gain.
 
 ---
 
@@ -276,6 +276,8 @@ JEDI predicts one coordinate. OmniParser produces a page map. Click-like defects
 **Disclosed inline (22pt grey-italic body):**
 
 - **IssAcc label leakage.** The JEDI prompt explicitly names the defect type ("alignment defect at..."). IssAcc then rewards the model for naming the same type in its reasoning. JEDI's large IssAcc gains (+.22 to +.47) are therefore partially confounded. Visual metrics (CLIP, SSIM, MAE) and AST metrics (CMLS, CMCS) are unaffected.
+
+- **AST + CSR coupling.** DesignBench zeros all AST metrics (CMLS, CMCS, CodeScore, IssAcc) when a sample fails to compile. Paired AST-metric gains on cells with low baseline CSR partially reflect compile-rate improvements: when a previously-uncompilable variant sample now compiles, it shifts from contributing 0 to its real AST score. This inflates the 7B+omni Angular hero CMCS +.073 modestly (baseline CSR .57 → variant .75). CLIP, SSIM, MAE are computed against rendered output and unaffected.
 
 - **Small N per framework.** N=27–28 per framework × model × signal. Two differing samples move the mean by several points. Paired Wilcoxon gives power against within-sample noise, but the per-cell estimates are noisy. We focus headline claims on cells that replicate across model sizes or frameworks.
 

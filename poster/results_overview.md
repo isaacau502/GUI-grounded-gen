@@ -11,7 +11,7 @@ Summary: **27 significant gains, 12 significant regressions.**
 
 ## Tier 1 — poster headlines (ranked)
 
-### 1. OmniParser structural on 7B Angular — hero cell
+### 1. OmniParser v2 on 7B Angular — hero cell
 
 **CLIP +.141 ** (p=.007)**, **SSIM +.111 ** (p=.002)**, **CMCS +.073 * (p=.048)**. CSR .57 → .75 (6 extra samples compile, McNemar p=.125 directional).
 
@@ -47,11 +47,11 @@ AST (CMLS, CMCS) trends mildly negative, never significant.
 
 *Why:* JEDI's click coordinates focus the 72B model's attention on the defect region, producing small consistent improvements. Smaller effect than OmniParser on 7B because 72B already has strong internal spatial understanding — grounding refines rather than scaffolds.
 
-### 5. JEDI on 72B Angular — the flip — visual regression
+### 5. JEDI on 72B Angular — mixed-visual
 
-**CLIP −.013 ** (p=.005)**, **SSIM −.026 * (p=.020)**. IssAcc +.225 ** (p=.004) but *caveated by leakage*. CMLS/CMCS flat.
+**CLIP −.013 ** (p=.005)** and **SSIM −.026 * (p=.020)** regress, but **MAE −3.04 ** (p=.005)** improves on the same cell. IssAcc +.225 ** (p=.004) but *caveated by leakage*. CMLS/CMCS flat. Two visual metrics down, one up on the same samples.
 
-*Why:* On Angular — where 72B was already strongest (CMLS .63, CLIP .82, CSR .96) — JEDI's click coordinates pull attention toward the defect but the model was already handling Angular well; the additional "click here" prompt displaces attention the model was using for accurate rendering, so visual fidelity drops.
+*Why:* On Angular — where 72B was already strongest (CMLS .63, CLIP .82, CSR .96) — JEDI's click coordinates pull attention toward the defect but the model was already handling Angular well; the additional "click here" prompt displaces attention the model was using for accurate CLIP/SSIM rendering. MAE (mean absolute pixel error) still registers a gain, suggesting the per-pixel difference shrinks even as embedding/structural similarity drop.
 
 ### 6. Methodology note — CLIP > SSIM for generative UI repair
 
@@ -132,7 +132,7 @@ Adding OmniParser on top of mark mode (red bboxes pre-highlighting defects) prod
 |-----------|------------|------|
 | Weak small model (7B) on hard framework (Angular) | **STRONG visual + SSIM + CSR** | modest positive (not significant after render) |
 | Strong 72B on any framework except Angular | **Consistent CLIP gain** | **Consistent visual gain, smaller than omni** |
-| 72B Angular | Small CLIP gain | **Visual regression** + IssAcc leakage |
+| 72B Angular | Small CLIP gain | **Mixed-visual** (CLIP/SSIM regress, MAE improves) + IssAcc leakage |
 | Framework dominated by alignment defects (React) | Safe | **Dangerous** — can blow out all metrics |
 | On top of red-bbox mark mode | Redundant / mildly harmful | Not tested on mark mode |
 
@@ -142,4 +142,4 @@ Adding OmniParser on top of mark mode (red bboxes pre-highlighting defects) prod
 - 72B + omni on React: flat
 - Everything on mark mode: null or regression
 
-*Why flat cells:* Baseline already OK (72B React, 7B Vanilla), or defect types don't benefit from structural grounding (React dominated by alignment where both groundings struggle, JEDI catastrophically).
+*Why flat cells:* Baseline already OK (72B React, 7B Vanilla), or defect types don't benefit from OmniParser v2 grounding (React dominated by alignment where both groundings struggle, JEDI catastrophically).

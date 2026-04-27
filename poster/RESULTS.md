@@ -2,7 +2,9 @@
 
 **One-stop reference.** Merges the tier-ranked narrative from [results_overview.md](results_overview.md), the significance table from [poster_stats.md](poster_stats.md), the per-defect slice from [per_defect.md](per_defect.md), and the run-by-run history from [ablation_log.md](../ablation_log.md).
 
-**Setup:** DesignBench repair task, 111 samples (R=28, V=27, A=28, Vanilla=28), Qwen2.5-VL-{7B, 72B} via Dashscope, temp=0, seed=42. Grounding = OmniParser structural (YOLO+OCR+Florence-2 captions+relations) OR JEDI-7B-1080p click points. Modes = `both` (code + screenshot) or `mark` (code + screenshot with defects red-bboxed). Significance: paired Wilcoxon signed-rank (continuous), McNemar exact binomial for CSR. α = 0.05 unless noted.
+**Setup:** DesignBench repair task, 111 samples (R=28, V=27, A=28, Vanilla=28), Qwen2.5-VL-{7B, 72B} via Dashscope, temp=0, seed=42. Grounding = OmniParser v2 prompt block (YOLO+OCR+Florence-2 captions+relations) OR JEDI-7B-1080p click points. Modes = `both` (code + screenshot) or `mark` (code + screenshot with defects red-bboxed). Significance: paired Wilcoxon signed-rank (continuous), McNemar exact binomial for CSR. α = 0.05 unless noted.
+
+**Methodology note on AST + CSR coupling.** DesignBench's evaluator zeros all metrics (including CMLS, CMCS, CodeScore, IssAcc) when a sample fails to compile. Paired AST-metric gains on cells with low baseline CSR therefore partially reflect compile-rate improvements — when a previously-uncompilable variant sample now compiles, it shifts from contributing a 0 to the variant mean to contributing its real AST score. This affects the 7B+omni Angular hero (baseline CSR .57 → variant .75) and inflates the CMCS +.073 gain modestly. CLIP, SSIM, and MAE are computed against rendered output and are not affected by this coupling.
 
 ---
 
@@ -11,7 +13,7 @@
 - **Structural GUI grounding reliably improves UI-repair quality, but the pattern depends on model size × framework.**
 - **Hero cell:** Qwen2.5-VL-7B on Angular with OmniParser → **CLIP 0.49 → 0.63 (+.141 ***, SSIM 0.41 → 0.52 (+.111 ***), CSR 57% → 75%**.
 - **Consistent but smaller effect on 72B:** OmniParser delivers significant CLIP/SSIM gains on Vue, Angular, and Vanilla (all p ≤ .045). AST metrics (CMLS/CMCS) trend mildly negative but never significant — consistent with "CMLS penalizes correct rewrites."
-- **JEDI is more targeted:** wins on 72B visual metrics for Vue/Vanilla/React, but **regresses visually** on 72B Angular (CLIP **−.013 ***, SSIM **−.026 *)**.
+- **JEDI is more targeted:** wins on 72B visual metrics for Vue/Vanilla/React. On 72B Angular the visual story is **mixed** — CLIP **−.013 *** and SSIM **−.026 *** regress, but MAE **−3.04 *** improves on the same cell.
 - **JEDI has one catastrophic failure mode:** 7B + JEDI on React blows out every metric (CSR 1.00 → 0.50, CLIP −.309 ***). Root cause: JEDI's 34% parse rate on alignment defects, which dominate React.
 - **JEDI IssAcc gains everywhere are partially confounded by label leakage** — the JEDI prompt names the defect type.
 - **Methodology finding:** CLIP and SSIM disagree on 7B Vue with both groundings. CLIP > SSIM for generative UI repair.
@@ -35,8 +37,8 @@
 4. **72B + JEDI visual gains on 3 non-Angular frameworks.** Vue SSIM **+.012 ****, CLIP **+.015 *, MAE **−.251 ***; Vanilla CLIP **+.013 ***, SSIM **+.026 *; React SSIM **+.011 ****, MAE **−1.15 ***.
    *Mechanism:* JEDI's click coordinates focus 72B attention on the defect region. Smaller effect than OmniParser on 7B because 72B already has spatial understanding — grounding refines rather than scaffolds.
 
-5. **72B + JEDI on Angular flips sign.** CLIP **−.013 ****, SSIM **−.026 *. IssAcc **+.225 *** (caveated leakage). CMLS/CMCS flat.
-   *Mechanism:* 72B Angular baseline was already strongest in the whole study (CMLS .63, CLIP .82, CSR .96). JEDI's click coords displace attention the model was successfully using.
+5. **72B + JEDI on Angular — mixed-visual.** CLIP **−.013 ****, SSIM **−.026 *** regress; MAE **−3.04 *** improves on the same cell. IssAcc **+.225 *** (caveated leakage). CMLS/CMCS flat.
+   *Mechanism:* 72B Angular baseline was already strongest in the whole study (CMLS .63, CLIP .82, CSR .96). JEDI's click coords displace attention the model was successfully using on CLIP/SSIM, while MAE (mean absolute pixel error) is pulled toward the reference enough to register a gain. Two visual metrics down, one up on the same samples.
 
 6. **CLIP > SSIM methodology finding.** 7B + OmniParser on Vue: CLIP **+.021 ****, SSIM **−.016 ***. Mirrored by 7B + JEDI on Vue: CLIP **+.012 *, SSIM **−.043 *, MAE **+4.78 *.
    *Mechanism:* Two visual metrics disagree. Grounding often fixes the defect correctly but re-lays-out the page. CLIP (embedding similarity) rewards semantic match; SSIM (per-pixel) rewards position preservation.
@@ -229,7 +231,7 @@ Full per-defect panels including JEDI + mark modes: [per_defect.md](per_defect.m
 | Weak 7B on hard framework (Angular) | **STRONG multi-metric (CLIP +.14, SSIM +.11, CSR +.18)** | Modest visual (not sig after render); big IssAcc (leaky) |
 | Strong 72B on Vue / Vanilla | **Consistent CLIP gain** | **Consistent CLIP + SSIM gain, smaller** |
 | Strong 72B on React | Flat | **Small SSIM + MAE gain** |
-| Strong 72B on Angular | Small CLIP gain | **Visual regression** (CLIP −.013 **, SSIM −.026 *) |
+| Strong 72B on Angular | Small CLIP gain | **Mixed-visual** (CLIP −.013 **, SSIM −.026 * regress; MAE −3.04 ** improves) |
 | 7B on React | Flat | **Catastrophic regression** (CSR 1.00 → 0.50) |
 | 7B on Vanilla | Flat | Flat |
 | On top of `mark` mode | Redundant, or mildly hurts 7B Vanilla | Not tested |
@@ -242,8 +244,8 @@ Each entry = one experimental configuration. See [ablation_log.md](../ablation_l
 
 | Run | Signal × Mode × Model | State | Commits |
 |-----|----------------------|-------|---------|
-| 01 | OmniParser structural × both × 7B | DONE | 5ec2828, eab17e8, e2eb9f0, 3531c38 |
-| 02 | OmniParser structural × both × 72B | DONE | 5ec2828, eab17e8, e2eb9f0, 3531c38 |
+| 01 | OmniParser v2 × both × 7B | DONE | 5ec2828, eab17e8, e2eb9f0, 3531c38 |
+| 02 | OmniParser v2 × both × 72B | DONE | 5ec2828, eab17e8, e2eb9f0, 3531c38 |
 | 05 | CLIP render pass (fill missing visual metrics for Runs 01+02) | DONE | 3531c38 |
 | 06 | JEDI click-points × both × 7B+72B (full render) | DONE | 4039ee1, faec452 |
 | 07 | `mark` mode × baseline+OmniParser × 7B+72B (AST-only) | DONE | 3531c38 |
